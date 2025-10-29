@@ -330,6 +330,8 @@ async startResearch() {
     return {
       id: obj.id,
       title: title,
+      area: obj.properties?.capability || 'Research',
+      topic: obj.properties?.framework || 'General',
       created_at: obj.created_at || obj.properties?.generated_at || new Date().toISOString(),
       content_source: obj.content?.source,
       when: this.formatDate(obj.created_at || obj.properties?.generated_at)
