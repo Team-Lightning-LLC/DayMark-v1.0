@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Testing Environment</title>
+<link rel="stylesheet" href="css/styles.css">
+<!-- Required libraries for markdown processing -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-section">
+      <img src="assets/logo.png" alt="DayMark Scout" class="logo">
+      <div class="brand-info">
+        <h1>Doculabs Scout</h1>
+        <div class="subtitle">Powered By Vertesia</div>
+      </div>
+    </div>
+    <h1 class="header-title"> Agentic Financial Research </h1>
+  </div>
+
+  <!-- Secondary Nav -->
+  <nav class="secondary-nav">
+    <div class="secondary-links">
+      <div class="secondary-link"> </div>
+      <div class="secondary-link"> </div>
+      <div class="secondary-link"> </div>
+      <div class="secondary-link"> </div>
+    </div>
+  </nav>
+  
+  <!-- Hero -->
+  <header class="research-banner">
+    <h2> </h2>
+  </header>
+
+  <!-- Shell -->
+  <section class="shell">
+    <!-- Left: Documents -->
+    <aside class="left">
+      <div class="panel-head">
+        <span class="panel-title">Research Library</span>
+      </div>
+      <div class="left-body">
+        <div class="searchBox" style="padding:0 0 12px 0">
+          <input id="docSearch" placeholder="Search documents…"/>
+        </div>
+        <div id="docsPane">
+          <div class="empty">Loading your research library...</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right: Generation -->
+    <main class="right">
+      <div class="panel-head">
+        <span class="panel-title">Create Research</span>
+        <span id="activeJobsBadge" class="active-badge" style="display: none;">Active (0)</span>
+      </div>
+      <div class="console">
+        
+        <!-- Research Capability -->
+        <div class="section">
+          <h3>Research Capability</h3>
+          <div class="field-group">
+            <select id="capability">
+              <option value="">Select capability...</option>
+              <option value="Traditional Analysis">Traditional Analysis</option>
+                <option value="Ecosystem Focused">Ecosystem</option>
+                <option value="Narrative Focused">Narrative Focused</option>
+                <option value="Comparative">Comparative</option>
+                <option value="Scenario Modeling">Scenario Modeling</option>
+                <option value="Company Insights">Intelligence Research</option>
+              </optgroup>
+              <option value="Custom Research">Custom Input</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <select id="framework" disabled>
+              <option value="">Choose capability first...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Additional Context -->
+        <div class="section">
+          <h3>Additional Context</h3>
+          <textarea 
+            id="contextInput" 
+            rows="3" 
+            placeholder="Select a framework above to begin..."
+            maxlength="1000"></textarea>
+          <div class="char-count"><span id="charCount">0</span> / 1000</div>
+        </div>
+    <!-- Research Modifiers -->
+    <div class="section">
+      <h3>Research Modifiers</h3>
+      <div class="ctx-grid">
+        <div class="ctx-block">
+          <div class="ctx-label">Scope</div>
+          <div class="seg" role="radiogroup" aria-label="Scope">
+            <button type="button" class="seg-option is-active" data-group="scope" data-value="Assets">Assets</button>
+            <button type="button" class="seg-option" data-group="scope" data-value="Sector">Sector</button>
+            <button type="button" class="seg-option" data-group="scope" data-value="Market">Market</button>
+          </div>
+        </div>
+        <div class="ctx-block">
+          <div class="ctx-label">Overview Details</div>
+          <div class="seg" role="radiogroup" aria-label="Depth">
+            <button type="button" class="seg-option is-active" data-group="Overview Details" data-value="High-Level">High-Level</button>
+            <button type="button" class="seg-option" data-group="Overview Details" data-value="In Depth">In Depth</button>
+            <button type="button" class="seg-option" data-group="Overview Details" data-value="Comprehensive">Comprehensive</button>
+          </div>
+        </div>
+        <div class="ctx-block">
+          <div class="ctx-label">Analytical Rigor</div>
+          <div class="seg" role="radiogroup" aria-label="Financials">
+            <button type="button" class="seg-option is-active" data-group="Analytical Rigor" data-value="Key Figures">Key Figures</button>
+            <button type="button" class="seg-option" data-group="Analytical Rigor" data-value="Analytical">Analytical</button>
+            <button type="button" class="seg-option" data-group="Analytical Rigor" data-value="Exhaustive Research">Exhaustive</button>
+          </div>
+        </div>
+        <div class="ctx-block">
+          <div class="ctx-label">Perspective</div>
+          <div class="seg" role="radiogroup" aria-label="Perspective">
+            <button type="button" class="seg-option is-active" data-group="perspective" data-value="Investment">Investment</button>
+            <button type="button" class="seg-option" data-group="perspective" data-value="Educational">Educational</button>
+            <button type="button" class="seg-option" data-group="perspective" data-value="Technical">Technical</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+     <!-- Generate Button -->
+        <div class="generate-row">
+          <button class="btn primary" id="createBtn" disabled>Generate Research</button>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- Generation Progress Toast - Hidden, using badge instead -->
+  <div id="generationToast" class="toast-notification" style="display: none;">
+    <div class="toast-header">
+      <div class="toast-icon">
+        <div class="toast-spinner"></div>
+      </div>
+      <div class="toast-title-section">
+        <div class="toast-title">Research in Progress</div>
+        <div class="toast-subtitle"><span id="jobCount">0</span> active jobs</div>
+      </div>
+      <button class="toast-minimize" id="toastMinimize">-</button>
+      <button class="toast-close" id="toastClose">×</button>
+    </div>
+    <div class="toast-body" id="toastBody">
+      <div id="jobsList" class="toast-jobs-list"></div>
+    </div>
+  </div>
+
+  <!-- Document Viewer Modal with Chat -->
+  <dialog id="viewer" aria-label="Document viewer">
+    <div class="viewer-head">
+      <div class="viewer-title" id="viewerTitle">Document</div>
+      <div class="viewer-actions">
+        <button type="button" class="viewer-btn" id="downloadPDF">Download PDF</button>
+        <button type="button" class="viewer-btn" id="chatToggle">Chat</button>
+        <button type="button" class="viewer-close" id="closeViewer">Close</button>
+      </div>
+    </div>
+    
+    <div class="viewer-container">
+      <!-- Document Content (Left Side) -->
+      <div id="viewerFrame" class="viewer-content"></div>
+      
+      <!-- Chat Panel (Right Side - Hidden by Default) -->
+      <div id="chatPanel" class="chat-panel">
+        <div class="chat-panel-header">
+          <div class="chat-panel-title">Chat with Document</div>
+          <div class="chat-panel-subtitle" id="chatDocTitle">Document Name</div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+          <!-- Messages populated dynamically -->
+        </div>
+        
+        <div class="chat-input-container">
+          <textarea 
+            id="chatInput" 
+            rows="2" 
+            placeholder="Ask a question about this document..."></textarea>
+          <button id="chatSend" class="chat-send-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Application Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/vertesia-api.js"></script>
+  <script src="js/markdown-viewer.js"></script>
+  <script src="js/research-engine.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
