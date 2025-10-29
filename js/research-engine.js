@@ -135,7 +135,7 @@ The Research Parameters you must follow for this document are:
 
 All web searches must acknowledge that the current date is 10.21.2025 when searching for the most recent data. Search for the most recent data unless otherwise specified. Always capture the most recent reliable data. The final output must be a document uploaded to the content object library.
  
-Remember: Only ever output 1 singular document regardless of the size of the request or complexity of material. Sources are Vital to the system for verifying truth and without them, the document is useless, so ensure you have all your sources.`.trim();
+Remember: Only ever output 1 singular document regardless of the size of the request or complexity of material. Sources are Vital to the system for verifying truth and without them, the document is useless, so ensure you have all your sources and you make them interactable for ease of use.`.trim();
   }
 
   updateBadge() {
