@@ -179,7 +179,7 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
     // Then rotate every 2 seconds
     this.statusRotationTimer = setInterval(() => {
       this.updateBadgeText();
-    }, 2000);
+    }, 10000);
   }
 
   updateBadgeText() {
