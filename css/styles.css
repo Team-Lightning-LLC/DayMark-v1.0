@@ -489,9 +489,9 @@ dialog::backdrop {
 }
 
 .viewer-btn, .viewer-close{
-  border:1px solid var(--accent-mint);
+  border:1px solid var( --tabs);
   background:transparent;
-  color:var(--accent-mint);
+  color:var(--tabs);
   border-radius:8px;
   padding:6px 12px;
   cursor:pointer;
@@ -501,8 +501,15 @@ dialog::backdrop {
 }
 
 .viewer-btn:hover, .viewer-close:hover{
-  background:var(--accent-mint);
-  color:#fff;
+  border:1px solid var(--viewerhover);
+  background:transparent;
+  color:var(--viewerhover);
+  border-radius:8px;
+  padding:6px 12px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:600;
+  transition: all 0.2s ease;
 }
 
 .viewer-content {
@@ -511,7 +518,7 @@ dialog::backdrop {
   margin: 0 auto;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.6;
-  color: var(--ink);
+  color: var( --ink);
   background: white;
   height: calc(100% - 44px);
   overflow-y: auto;
@@ -870,7 +877,48 @@ dialog::backdrop {
   flex-direction: column;
   gap: 12px;
 }
+/* Chat message formatting */
+.chat-message-bubble p {
+  margin: 0 0 10px 0;
+}
 
+.chat-message-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-message-bubble strong {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.chat-message.user .chat-message-bubble strong {
+  color: white;
+  font-weight: 700;
+}
+
+.chat-bullet {
+  margin: 4px 0;
+  padding-left: 8px;
+}
+
+.chat-numbered {
+  margin: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.chat-numbered:before {
+  content: counter(list-item) ". ";
+  position: absolute;
+  left: 0;
+  font-weight: 600;
+}
+
+.chat-message-bubble br {
+  content: "";
+  display: block;
+  margin: 4px 0;
+}
 .chat-messages::-webkit-scrollbar {
   width: 6px;
 }
@@ -926,7 +974,7 @@ dialog::backdrop {
   max-width: 85%;
   word-wrap: break-word;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .chat-message.user .chat-message-bubble {
@@ -940,49 +988,6 @@ dialog::backdrop {
   color: var(--ink);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
-}
-
-/* Chat message formatting */
-.chat-message-bubble p {
-  margin: 0 0 10px 0;
-}
-
-.chat-message-bubble p:last-child {
-  margin-bottom: 0;
-}
-
-.chat-message-bubble strong {
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.chat-message.user .chat-message-bubble strong {
-  color: white;
-  font-weight: 700;
-}
-
-.chat-bullet {
-  margin: 4px 0;
-  padding-left: 8px;
-}
-
-.chat-numbered {
-  margin: 4px 0;
-  padding-left: 16px;
-  position: relative;
-}
-
-.chat-numbered:before {
-  content: counter(list-item) ". ";
-  position: absolute;
-  left: 0;
-  font-weight: 600;
-}
-
-.chat-message-bubble br {
-  content: "";
-  display: block;
-  margin: 4px 0;
 }
 
 .chat-message-time {
@@ -1130,6 +1135,29 @@ dialog::backdrop {
 }
 
 /* Active jobs badge styling */
+.active-badge {
+  background: var(--accent-mint);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.version-badge {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font-size: 9px;
+  color: var(--muted);
+  opacity: 0.5;
+  font-weight: 400;
+  z-index: 100;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* Active jobs badge styling */
 .active-badge {
   background: var(--accent-mint);
@@ -1156,21 +1184,6 @@ dialog::backdrop {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
-/* Version badge - bottom right corner */
-.version-badge {
-  position: fixed;
-  bottom: 12px;
-  right: 12px;
-  font-size: 9px;
-  color: var(--muted);
-  opacity: 0.5;
-  font-weight: 400;
-  z-index: 100;
-  user-select: none;
-  pointer-events: none;
-}
-
 /* History download button - bottom left corner */
 .history-download-btn {
   position: fixed;
