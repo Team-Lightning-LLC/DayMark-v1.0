@@ -3,6 +3,16 @@ class ResearchEngine {
   constructor() {
     this.currentJobs = [];
     this.STORAGE_KEY = 'deepresearch_active_jobs';
+    this.statusRotationTimer = null;
+    this.statusMessages = [
+      "Fetching Pages",
+      "Citing Sources", 
+      "Connecting Dots",
+      "Analyzing Content",
+      "Reading Sources",
+      "Synthesizing Data",
+      "Building Report"
+    ];
     this.restoreJobsFromStorage();
   }
 
@@ -133,9 +143,8 @@ The Research Parameters you must follow for this document are:
 - Analytical Rigor: ${data.modifiers["Analytical Rigor"]}
 - Perspective: ${data.modifiers.perspective}
 
-All web searches must acknowledge that the current date is 10.21.2025 when searching for the most recent data. Search for the most recent data unless otherwise specified. Always capture the most recent reliable data. The final output must be a document uploaded to the content object library.
- 
-Remember: Only ever output 1 singular document regardless of the size of the request or complexity of material. Sources are Vital to the system for verifying truth and without them, the document is useless, so ensure you have all your sources and you make them interactable for ease of use.`.trim();
+All web searches must acknowledge that the current date is 10.21.2025 when searching for the most recent data. Search for the most recent data unless otherwise specified. Always capture the most recent reliable data. The final output must be a document uploaded to the content object library. Please produce a singular document for this research.
+    `.trim();
   }
 
   updateBadge() {
@@ -143,11 +152,45 @@ Remember: Only ever output 1 singular document regardless of the size of the req
     if (!badge) return;
     
     if (this.currentJobs.length > 0) {
-      badge.textContent = `Active (${this.currentJobs.length})`;
+      // Start rotation if not already running
+      if (!this.statusRotationTimer) {
+        this.startStatusRotation();
+      }
+      
       badge.style.display = 'inline-block';
     } else {
+      // Stop rotation when no jobs
+      if (this.statusRotationTimer) {
+        clearInterval(this.statusRotationTimer);
+        this.statusRotationTimer = null;
+      }
+      
       badge.style.display = 'none';
     }
+  }
+
+  startStatusRotation() {
+    const badge = document.getElementById('activeJobsBadge');
+    if (!badge) return;
+    
+    // Update immediately
+    this.updateBadgeText();
+    
+    // Then rotate every 2 seconds
+    this.statusRotationTimer = setInterval(() => {
+      this.updateBadgeText();
+    }, 2000);
+  }
+
+  updateBadgeText() {
+    const badge = document.getElementById('activeJobsBadge');
+    if (!badge) return;
+    
+    // Pick random status message
+    const randomIndex = Math.floor(Math.random() * this.statusMessages.length);
+    const status = this.statusMessages[randomIndex];
+    
+    badge.textContent = `${status} (${this.currentJobs.length})`;
   }
 
   startJobPolling(job) {
@@ -187,6 +230,12 @@ Remember: Only ever output 1 singular document regardless of the size of the req
     }
     
     this.saveJobsState();
+    
+    // Update badge immediately to reflect new count
+    if (this.currentJobs.length > 0) {
+      this.updateBadgeText();
+    }
+    
     this.updateBadge();
   }
 }
