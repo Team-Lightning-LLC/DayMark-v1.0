@@ -383,17 +383,46 @@ class MarkdownViewer {
     this.renderChatMessages();
   }
 
+  // Format assistant message content for readability
+  formatChatMessage(content) {
+    if (!content) return '';
+    
+    // Escape HTML first for security
+    const div = document.createElement('div');
+    div.textContent = content;
+    let formatted = div.innerHTML;
+    
+    // Convert bullet points (• or - at start of line) to styled list items
+    formatted = formatted.replace(/^[•\-]\s+(.+)$/gm, '<div class="chat-bullet">• $1</div>');
+    
+    // Bold text (**text**)
+    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert double line breaks to paragraphs
+    const paragraphs = formatted.split('\n\n').filter(p => p.trim());
+    formatted = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    
+    return formatted;
+  }
+
   // Render all chat messages
   renderChatMessages() {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
-    chatMessages.innerHTML = this.chatMessages.map(msg => `
-      <div class="chat-message ${msg.role}">
-        <div class="chat-message-bubble">${this.escapeHtml(msg.content)}</div>
-        <div class="chat-message-time">${msg.timestamp}</div>
-      </div>
-    `).join('');
+    chatMessages.innerHTML = this.chatMessages.map(msg => {
+      // Format assistant messages for readability, escape user messages
+      const content = msg.role === 'assistant' 
+        ? this.formatChatMessage(msg.content)
+        : this.escapeHtml(msg.content);
+      
+      return `
+        <div class="chat-message ${msg.role}">
+          <div class="chat-message-bubble">${content}</div>
+          <div class="chat-message-time">${msg.timestamp}</div>
+        </div>
+      `;
+    }).join('');
     
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
