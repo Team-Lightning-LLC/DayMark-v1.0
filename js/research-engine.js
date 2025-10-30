@@ -278,19 +278,38 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
         return;
       }
 
-      const dataStr = JSON.stringify(history, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
+      // Convert to Markdown format
+      let markdown = '# Research History\n\n';
+      markdown += `Generated: ${new Date().toLocaleString()}\n\n`;
+      markdown += '---\n\n';
+      
+      history.forEach((entry, index) => {
+        const timestamp = new Date(entry.timestamp).toLocaleString();
+        
+        markdown += `## ${index + 1}. ${timestamp}\n\n`;
+        markdown += `**Research Type:** ${entry.capability}\n`;
+        markdown += `**Framework:** ${entry.framework}\n\n`;
+        markdown += `**Context:**\n${entry.context}\n\n`;
+        markdown += `**Research Parameters:**\n`;
+        markdown += `- Scope: ${entry.modifiers.scope}\n`;
+        markdown += `- Overview Details: ${entry.modifiers.overviewDetails}\n`;
+        markdown += `- Analytical Rigor: ${entry.modifiers.analyticalRigor}\n`;
+        markdown += `- Perspective: ${entry.modifiers.perspective}\n\n`;
+        markdown += '---\n\n';
+      });
+      
+      const blob = new Blob([markdown], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       
       const link = document.createElement('a');
       link.href = url;
-      link.download = `research-history-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `research-history-${new Date().toISOString().split('T')[0]}.md`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      console.log(`Downloaded ${history.length} research entries`);
+      console.log(`Downloaded ${history.length} research entries as Markdown`);
     } catch (error) {
       console.error('Failed to download history:', error);
       alert('Failed to download research history. Check console for details.');
