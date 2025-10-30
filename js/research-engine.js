@@ -112,6 +112,9 @@ class ResearchEngine {
         Task: prompt
       });
 
+      // Log to research history
+      this.logResearchHistory(researchData);
+
       const newJob = {
         data: researchData,
         startTime: Date.now(),
@@ -234,6 +237,65 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
     this.saveJobsState();
     this.updateBadge();
   }
+
+  logResearchHistory(researchData) {
+    console.log('Logging research to history:', researchData);
+    
+    const historyEntry = {
+      timestamp: new Date().toISOString(),
+      capability: researchData.capability,
+      framework: researchData.framework,
+      context: researchData.context,
+      modifiers: {
+        scope: researchData.modifiers.scope,
+        overviewDetails: researchData.modifiers["Overview Details"],
+        analyticalRigor: researchData.modifiers["Analytical Rigor"],
+        perspective: researchData.modifiers.perspective
+      }
+    };
+
+    try {
+      const history = JSON.parse(localStorage.getItem('research_history') || '[]');
+      history.push(historyEntry);
+      localStorage.setItem('research_history', JSON.stringify(history));
+      console.log('Research logged successfully. Total entries:', history.length);
+      console.log('Logged entry:', historyEntry);
+    } catch (error) {
+      console.error('Failed to log research history:', error);
+    }
+  }
+
+  downloadHistory() {
+    console.log('Download history button clicked');
+    
+    try {
+      const history = JSON.parse(localStorage.getItem('research_history') || '[]');
+      console.log('History entries found:', history.length);
+      console.log('History data:', history);
+      
+      if (history.length === 0) {
+        alert('No research history to download. Submit a research request first.');
+        return;
+      }
+
+      const dataStr = JSON.stringify(history, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `research-history-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log(`Downloaded ${history.length} research entries`);
+    } catch (error) {
+      console.error('Failed to download history:', error);
+      alert('Failed to download research history. Check console for details.');
+    }
+  }
 }
 
 const researchEngine = new ResearchEngine();
@@ -242,8 +304,12 @@ const researchEngine = new ResearchEngine();
 document.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('downloadHistory');
   if (downloadBtn) {
+    console.log('History download button found, attaching listener');
     downloadBtn.addEventListener('click', () => {
+      console.log('History download button clicked');
       researchEngine.downloadHistory();
     });
+  } else {
+    console.warn('History download button not found in DOM');
   }
 });
