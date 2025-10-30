@@ -237,3 +237,13 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
 }
 
 const researchEngine = new ResearchEngine();
+
+// History download button
+document.addEventListener('DOMContentLoaded', () => {
+  const downloadBtn = document.getElementById('downloadHistory');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      researchEngine.downloadHistory();
+    });
+  }
+});
