@@ -3,16 +3,6 @@ class ResearchEngine {
   constructor() {
     this.currentJobs = [];
     this.STORAGE_KEY = 'deepresearch_active_jobs';
-    this.statusRotationTimer = null;
-    this.statusMessages = [
-      "Fetching Pages",
-      "Citing Sources", 
-      "Connecting Dots",
-      "Analyzing Content",
-      "Reading Sources",
-      "Synthesizing Data",
-      "Building Report"
-    ];
     this.restoreJobsFromStorage();
   }
 
@@ -82,17 +72,31 @@ class ResearchEngine {
           }
         },
         startTime: savedJob.startTime,
-        timers: { refresh: null }
+        timers: { 
+          refresh: null,
+          autoDecrement: null
+        }
       };
       
       this.currentJobs.push(job);
       
+      // If less than 5 minutes elapsed, set auto-decrement timer for remaining time
       if (elapsed < 300) {
         const remaining = 300 - elapsed;
+        job.timers.autoDecrement = setTimeout(() => {
+          this.autoDecrementJob(job);
+        }, remaining * 1000);
+        
+        // Also start polling after remaining time
         setTimeout(() => {
           this.startJobPolling(job);
         }, remaining * 1000);
       } else {
+        // More than 5 minutes passed, start polling now and set immediate decrement
+        job.timers.autoDecrement = setTimeout(() => {
+          this.autoDecrementJob(job);
+        }, 100); // Decrement almost immediately
+        
         this.startJobPolling(job);
       }
     });
@@ -111,13 +115,22 @@ class ResearchEngine {
       const newJob = {
         data: researchData,
         startTime: Date.now(),
-        timers: { refresh: null }
+        timers: { 
+          refresh: null,
+          autoDecrement: null
+        }
       };
 
       this.currentJobs.push(newJob);
       this.saveJobsState();
       this.updateBadge();
       
+      // Set 5-minute auto-decrement timer
+      newJob.timers.autoDecrement = setTimeout(() => {
+        this.autoDecrementJob(newJob);
+      }, 5 * 60 * 1000); // 5 minutes
+      
+      // Start polling after 5 minutes
       setTimeout(() => {
         this.startJobPolling(newJob);
       }, 5 * 60 * 1000);
@@ -126,6 +139,26 @@ class ResearchEngine {
       console.error('Failed to start research:', error);
       alert('Failed to start research generation. Please try again.');
     }
+  }
+
+  autoDecrementJob(job) {
+    const jobIndex = this.currentJobs.indexOf(job);
+    if (jobIndex === -1) return; // Job already removed
+    
+    // Clear timers
+    if (job.timers.refresh) {
+      clearInterval(job.timers.refresh);
+    }
+    if (job.timers.autoDecrement) {
+      clearTimeout(job.timers.autoDecrement);
+    }
+    
+    // Remove job
+    this.currentJobs.splice(jobIndex, 1);
+    this.saveJobsState();
+    this.updateBadge();
+    
+    console.log('Job auto-decremented after 5 minutes');
   }
 
   buildResearchPrompt(data) {
@@ -152,45 +185,11 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
     if (!badge) return;
     
     if (this.currentJobs.length > 0) {
-      // Start rotation if not already running
-      if (!this.statusRotationTimer) {
-        this.startStatusRotation();
-      }
-      
-      badge.style.display = 'inline-block';
+      badge.innerHTML = `<span class="badge-spinner"></span> (${this.currentJobs.length}) Active Screens`;
+      badge.style.display = 'inline-flex';
     } else {
-      // Stop rotation when no jobs
-      if (this.statusRotationTimer) {
-        clearInterval(this.statusRotationTimer);
-        this.statusRotationTimer = null;
-      }
-      
       badge.style.display = 'none';
     }
-  }
-
-  startStatusRotation() {
-    const badge = document.getElementById('activeJobsBadge');
-    if (!badge) return;
-    
-    // Update immediately
-    this.updateBadgeText();
-    
-    // Then rotate every 2 seconds
-    this.statusRotationTimer = setInterval(() => {
-      this.updateBadgeText();
-    }, 10000);
-  }
-
-  updateBadgeText() {
-    const badge = document.getElementById('activeJobsBadge');
-    if (!badge) return;
-    
-    // Pick random status message
-    const randomIndex = Math.floor(Math.random() * this.statusMessages.length);
-    const status = this.statusMessages[randomIndex];
-    
-    badge.textContent = `${status} (${this.currentJobs.length})`;
   }
 
   startJobPolling(job) {
@@ -225,17 +224,14 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
       if (completedJob.timers.refresh) {
         clearInterval(completedJob.timers.refresh);
       }
+      if (completedJob.timers.autoDecrement) {
+        clearTimeout(completedJob.timers.autoDecrement);
+      }
       
       this.currentJobs.shift();
     }
     
     this.saveJobsState();
-    
-    // Update badge immediately to reflect new count
-    if (this.currentJobs.length > 0) {
-      this.updateBadgeText();
-    }
-    
     this.updateBadge();
   }
 }
