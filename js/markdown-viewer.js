@@ -1,14 +1,12 @@
-// Markdown Document Viewer and PDF Generator with Chat
+// Markdown Document Viewer and PDF Generator with Streaming Chat
 class MarkdownViewer {
   constructor() {
     this.currentContent = '';
     this.currentTitle = '';
     this.currentDocId = null;
-    this.conversationId = null;
     this.chatOpen = false;
     this.chatMessages = [];
-    this.activeChatJob = null;
-    this.chatPollTimer = null;
+    this.streamAbortController = null;
     this.setupEventListeners();
   }
 
@@ -41,6 +39,9 @@ class MarkdownViewer {
       }
     });
 
+    // Add download chat button dynamically
+    this.addDownloadChatButton();
+
     // Click outside to close
     const dialog = document.getElementById('viewer');
     dialog?.addEventListener('click', (e) => {
@@ -58,6 +59,70 @@ class MarkdownViewer {
     });
   }
 
+  // Add download chat button to input container
+  addDownloadChatButton() {
+    const chatInputContainer = document.querySelector('.chat-input-container');
+    if (!chatInputContainer) return;
+
+    // Create button container for stacked buttons
+    const buttonStack = document.createElement('div');
+    buttonStack.className = 'chat-button-stack';
+    buttonStack.innerHTML = `
+      <button id="chatDownload" class="chat-download-btn" title="Download conversation">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+      </button>
+    `;
+
+    // Find send button and replace with stack
+    const sendButton = document.getElementById('chatSend');
+    if (sendButton) {
+      // Move send button into stack
+      chatInputContainer.removeChild(sendButton);
+      buttonStack.appendChild(sendButton);
+      chatInputContainer.appendChild(buttonStack);
+
+      // Add download listener
+      document.getElementById('chatDownload')?.addEventListener('click', () => {
+        this.downloadChatHistory();
+      });
+    }
+  }
+
+  // Download chat history as markdown
+  downloadChatHistory() {
+    if (this.chatMessages.length === 0) {
+      alert('No conversation to download yet.');
+      return;
+    }
+
+    // Build markdown content
+    let markdown = `# Chat with ${this.currentTitle}\n\n`;
+    markdown += `Date: ${new Date().toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    })}\n\n`;
+    markdown += `---\n\n`;
+
+    this.chatMessages.forEach((msg, index) => {
+      const role = msg.role === 'user' ? '**You**' : '**Assistant**';
+      markdown += `${role}: ${msg.content}\n\n`;
+    });
+
+    // Create blob and download
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat_${this.currentTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   // Open formatted markdown viewer
   openViewer(markdownContent, title, docId) {
     if (!marked || typeof marked.parse !== 'function') {
@@ -66,10 +131,16 @@ class MarkdownViewer {
       return;
     }
 
+    // If switching documents, close existing stream
+    if (this.currentDocId && this.currentDocId !== docId) {
+      console.log('Switching documents, closing existing stream');
+      this.closeStream();
+    }
+
     this.currentContent = markdownContent;
     this.currentTitle = title;
     this.currentDocId = docId;
-    this.conversationId = null;
+    this.workflowId = null;
     this.chatMessages = [];
     this.chatOpen = false;
 
@@ -160,7 +231,7 @@ class MarkdownViewer {
     `;
   }
 
-  // Send chat message
+  // Send chat message with streaming
   async sendMessage() {
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
@@ -169,47 +240,36 @@ class MarkdownViewer {
     const message = chatInput.value.trim();
     if (!message) return;
     
+    // Add user message to UI immediately
     this.addMessage('user', message);
     
+    // Clear input and disable
     chatInput.value = '';
     chatInput.disabled = true;
     if (chatSend) chatSend.disabled = true;
     
+    // Show thinking indicator
     this.addThinkingMessage();
     
     try {
-      let jobResponse;
+      console.log('Sending message for document:', this.currentDocId);
       
-      if (!this.conversationId) {
-        console.log('Starting new conversation for document:', this.currentDocId);
-        jobResponse = await vertesiaAPI.startDocumentConversation({
-          document_id: this.currentDocId,
-          question: message
-        });
-        
-        console.log('Full API response:', jobResponse);
-        
-        this.conversationId = jobResponse.conversationId || jobResponse.workflowId || jobResponse.id;
-        console.log('Conversation started:', this.conversationId);
-        
-      } else {
-        console.log('Continuing conversation:', this.conversationId);
-        jobResponse = await vertesiaAPI.continueDocumentConversation(
-          this.conversationId,
-          message
-        );
-        
-        console.log('Continue response:', jobResponse);
-      }
+      // Build conversation history for context
+      const conversationHistory = this.chatMessages
+        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n');
       
-      this.activeChatJob = {
-        runId: jobResponse.runId || jobResponse.id,
-        startTime: Date.now()
-      };
+      // Call async execution with history
+      const response = await vertesiaAPI.chatWithDocument({
+        document_id: this.currentDocId,
+        question: message,
+        conversation_history: conversationHistory
+      });
       
-      console.log('Polling with runId:', this.activeChatJob.runId);
+      console.log('Async response:', response);
       
-      this.startChatPolling();
+      // Open a new stream for this message
+      this.openStream(response.workflowId, response.runId);
       
     } catch (error) {
       console.error('Chat error:', error);
@@ -219,6 +279,56 @@ class MarkdownViewer {
       chatInput.disabled = false;
       if (chatSend) chatSend.disabled = false;
       chatInput.focus();
+    }
+  }
+
+  // Open streaming connection (new stream for each message)
+  openStream(workflowId, runId) {
+    console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
+    
+    this.streamAbortController = new AbortController();
+    
+    vertesiaAPI.streamWorkflowMessages(
+      workflowId,
+      runId,
+      this.streamAbortController.signal,
+      
+      // onMessage - called for each message chunk
+      (data) => {
+        console.log('Stream message received:', data);
+        
+        // Only show messages with type: "complete" - that's the final answer
+        if (data.type === 'complete' && data.message) {
+          this.removeThinkingMessage();
+          this.addMessage('assistant', data.message);
+          this.reEnableInput(); // Re-enable immediately when answer appears
+        }
+      },
+      
+      // onComplete - called when stream ends
+      () => {
+        console.log('Stream completed');
+        this.streamAbortController = null;
+        // Input already re-enabled when answer received
+      },
+      
+      // onError - called on error
+      (error) => {
+        console.error('Stream error:', error);
+        this.removeThinkingMessage();
+        this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
+        this.streamAbortController = null;
+        this.reEnableInput();
+      }
+    );
+  }
+
+  // Close streaming connection
+  closeStream() {
+    if (this.streamAbortController) {
+      console.log('Aborting stream');
+      this.streamAbortController.abort();
+      this.streamAbortController = null;
     }
   }
 
@@ -248,89 +358,7 @@ class MarkdownViewer {
     if (thinking) thinking.remove();
   }
 
-  // Start polling for chat result
-  startChatPolling() {
-    let pollCount = 0;
-    const maxPolls = 30;
-    
-    this.chatPollTimer = setInterval(async () => {
-      pollCount++;
-      
-      try {
-        console.log(`Polling attempt ${pollCount} for runId:`, this.activeChatJob.runId);
-        
-        const runData = await vertesiaAPI.getChatJobStatus(this.activeChatJob.runId);
-        
-        console.log('Run status:', runData.status);
-        console.log('Full run data:', runData);
-        
-        if (runData.status === 'completed' || runData.status === 'success') {
-          this.removeThinkingMessage();
-          
-          let answer = 'Response received.';
-          
-          if (runData.result) {
-            if (typeof runData.result === 'string') {
-              answer = runData.result;
-            } else if (runData.result.answer) {
-              answer = runData.result.answer;
-            } else if (runData.result.output) {
-              answer = runData.result.output;
-            } else if (runData.result.response) {
-              answer = runData.result.response;
-            } else {
-              answer = JSON.stringify(runData.result);
-            }
-          }
-          
-          console.log('Extracted answer:', answer);
-          this.addMessage('assistant', answer);
-          
-          this.stopChatPolling();
-          this.reEnableInput();
-          
-        } else if (runData.status === 'failed' || runData.status === 'error') {
-          console.error('Run failed:', runData);
-          this.removeThinkingMessage();
-          this.addMessage('assistant', 'Sorry, there was an error generating the response.');
-          
-          this.stopChatPolling();
-          this.reEnableInput();
-        }
-        
-        if (pollCount >= maxPolls) {
-          console.error('Polling timeout after', maxPolls, 'attempts');
-          this.removeThinkingMessage();
-          this.addMessage('assistant', 'Request timed out. Please try again.');
-          
-          this.stopChatPolling();
-          this.reEnableInput();
-        }
-        
-      } catch (error) {
-        console.error('Polling error:', error);
-        
-        if (pollCount >= maxPolls) {
-          this.removeThinkingMessage();
-          this.addMessage('assistant', 'Error checking response status.');
-          
-          this.stopChatPolling();
-          this.reEnableInput();
-        }
-      }
-    }, 2000);
-  }
-
-  // Stop chat polling
-  stopChatPolling() {
-    if (this.chatPollTimer) {
-      clearInterval(this.chatPollTimer);
-      this.chatPollTimer = null;
-    }
-    this.activeChatJob = null;
-  }
-
-  // Re-enable input
+  // Re-enable input after response
   reEnableInput() {
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
@@ -355,62 +383,37 @@ class MarkdownViewer {
     this.renderChatMessages();
   }
 
-  // Format chat message content for display
-  formatChatMessage(content) {
-    if (!content) return '';
-    
-    // Convert bullet points (• or - at start of line) to styled list items
-    content = content.replace(/^[•\-]\s+(.+)$/gm, '<div class="chat-bullet">• $1</div>');
-    
-    // Convert numbered lists (1. or 2. etc)
-    content = content.replace(/^\d+\.\s+(.+)$/gm, '<div class="chat-numbered">$1</div>');
-    
-    // Bold text (**text** or __text__)
-    content = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    content = content.replace(/__(.+?)__/g, '<strong>$1</strong>');
-    
-    // Convert double line breaks to paragraphs
-    content = content.replace(/\n\n+/g, '</p><p>');
-    content = '<p>' + content + '</p>';
-    
-    // Convert single line breaks to <br>
-    content = content.replace(/\n/g, '<br>');
-    
-    // Clean up empty paragraphs
-    content = content.replace(/<p>\s*<\/p>/g, '');
-    
-    return content;
-  }
-
   // Render all chat messages
   renderChatMessages() {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
-    chatMessages.innerHTML = this.chatMessages.map(msg => {
-      const formattedContent = msg.role === 'assistant' 
-        ? this.formatChatMessage(msg.content)
-        : msg.content; // Don't format user messages
-      
-      return `
-        <div class="chat-message ${msg.role}">
-          <div class="chat-message-bubble">${formattedContent}</div>
-          <div class="chat-message-time">${msg.timestamp}</div>
-        </div>
-      `;
-    }).join('');
+    chatMessages.innerHTML = this.chatMessages.map(msg => `
+      <div class="chat-message ${msg.role}">
+        <div class="chat-message-bubble">${this.escapeHtml(msg.content)}</div>
+        <div class="chat-message-time">${msg.timestamp}</div>
+      </div>
+    `).join('');
     
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
-  // Close viewer and reset
+  // Escape HTML to prevent XSS
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Close viewer and cleanup
   closeViewer() {
     const dialog = document.getElementById('viewer');
     const viewerFrame = document.getElementById('viewerFrame');
     const container = document.querySelector('.viewer-container');
     const chatToggle = document.getElementById('chatToggle');
     
-    this.stopChatPolling();
+    // Close any active stream
+    this.closeStream();
     
     if (viewerFrame) {
       viewerFrame.innerHTML = '';
@@ -426,7 +429,6 @@ class MarkdownViewer {
     
     this.chatOpen = false;
     this.chatMessages = [];
-    this.conversationId = null;
 
     if (dialog?.open) {
       dialog.close();
