@@ -1103,3 +1103,16 @@ dialog::backdrop {
   font-weight: 600;
   letter-spacing: 0.3px;
 }
+
+.version-badge {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font-size: 9px;
+  color: var(--muted);
+  opacity: 0.5;
+  font-weight: 400;
+  z-index: 100;
+  user-select: none;
+  pointer-events: none;
+}
