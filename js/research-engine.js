@@ -165,14 +165,46 @@ class ResearchEngine {
   }
 
   buildResearchPrompt(data) {
-    return `
+    let prompt = '';
+    
+    // If this is a follow-up research, add parent document reference
+    if (data.parent_document_id) {
+      prompt = `FOLLOW-UP RESEARCH REQUEST
+
+First, access and thoroughly analyze Document ID: ${data.parent_document_id} from the content object library. 
+Read through this document to understand the key findings, data, themes, and context it provides.
+
+The user wants to explore the following aspects from that document:
+${data.context}
+
+Use insights and context from the parent document to inform and enhance the quality of the research topic we are diving into. 
+Reference relevant findings from the parent document where appropriate, but create a standalone document 
+that can be read independently. This document is meant to be an extension of the parent that focuses more deeply on a specified topic.
+The singular document you generate MUST contain interactable hyperlinked sources. 
+If there are no sources in the singular document, the document is useless. Include interactable, complete sources for the document you create.
+Hyperlink the sources. You Must use hyperlinks for the sources of this singular document. Remember to only generate 1 document, not 2,3,4 or 5; just a singular complete document.
+
+`;
+    }
+    
+    // Add standard research structure (or simplified for follow-up)
+    if (data.capability && data.framework) {
+      prompt += `
 Utilize Web Search to develop a singular document utilizing the following structure as the guide to provide users with a valuable research document: 
 Analysis Type: ${data.capability}
 Framework: ${data.framework}
 
 Utilize this context to gain additional insight into your research topic:
 ${data.context}
-
+`;
+    } else {
+      // Follow-up without explicit capability/framework
+      prompt += `
+Utilize Web Search to develop comprehensive research addressing the user's request above.
+`;
+    }
+    
+    prompt += `
 The Research Parameters you must follow for this document are:
 - Scope: ${data.modifiers.scope}
 - Overview Detail: ${data.modifiers["Overview Details"]}
@@ -180,7 +212,9 @@ The Research Parameters you must follow for this document are:
 - Perspective: ${data.modifiers.perspective}
 
 All web searches must acknowledge that the current date is 10.21.2025 when searching for the most recent data. Search for the most recent data unless otherwise specified. Always capture the most recent reliable data. The final output must be a document uploaded to the content object library. Please produce a singular document for this research.
-    `.trim();
+    `;
+    
+    return prompt.trim();
   }
 
   updateBadge() {
@@ -188,7 +222,7 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
     if (!badge) return;
     
     if (this.currentJobs.length > 0) {
-      badge.innerHTML = `<span class="badge-spinner"></span> (${this.currentJobs.length}) Active Screens`;
+      badge.innerHTML = `<span class="badge-spinner"></span> (${this.currentJobs.length}) Generating`;
       badge.style.display = 'inline-flex';
     } else {
       badge.style.display = 'none';
@@ -253,6 +287,12 @@ All web searches must acknowledge that the current date is 10.21.2025 when searc
         perspective: researchData.modifiers.perspective
       }
     };
+    
+    // Add parent document reference if this is a follow-up
+    if (researchData.parent_document_id) {
+      historyEntry.parent_document_id = researchData.parent_document_id;
+      historyEntry.is_followup = true;
+    }
 
     try {
       const history = JSON.parse(localStorage.getItem('research_history') || '[]');
