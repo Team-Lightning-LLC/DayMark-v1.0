@@ -1,11 +1,11 @@
 :root{
   /* New Color Palette - Blue/Teal/Mint */
   --primary: #172A3A;           /* Prussian blue - main brand, headers */
-  --primary-light: #172A3A;     /* Blue Munsell - secondary elements */
+  --primary-light: #172A3A;     /* Prussian blue - secondary elements */
   --primary-dark: #004346;      /* Midnight green - depth, shadows */
-  --accent-mint: #172A3A;       /* China rose - CTAs, active states, energy */
-  --accent-light: #172A3A;      /* Carolina blue - hover, subtle highlights */
-  --accent-mint-hover: #172A3A; /* Eggplant for hover */
+  --accent-mint: #172A3A;       /* Prussian blue - CTAs, active states, energy */
+  --accent-light: #172A3A;      /* Prussian blue - hover, subtle highlights */
+  --accent-mint-hover: #172A3A; /* Prussian blue for hover */
   
   --ink: #1f2d3d;
   --tabs: #FFFFFF;
@@ -16,14 +16,28 @@
   --bg: #f5f6f7;
   --card: #fff;
   --soft: #f8f9fb;
-  --ok: #995C75;               /* Use mint for success states */
+  --ok: #995C75;  
   --warn: #8a5a00;
-  --info: #172A3A;             /* Use Munsell for info */
+  --info: #172A3A;             /* Use prussian blue for info */
   --shadow: 0 6px 18px rgba(23,42,58,.12);
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,Cantarell,sans-serif;background:var(--bg);color:var(--ink)}
+
+/* ===== 80% ZOOM EFFECT ===== */
+body {
+  zoom: 0.8;
+}
+
+/* Firefox fallback (doesn't support zoom property) */
+@-moz-document url-prefix() {
+  body {
+    transform: scale(0.8);
+    transform-origin: 0 0;
+    width: 125%;
+  }
+}
 
 /* ===== App Chrome ===== */
 .header {
@@ -123,7 +137,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,Canta
 
 /* Shell - Updated for scrollable library */
 .shell{
-  max-width:1200px;
+  max-width:1500px;  /* Increased from 1200px */
   margin:18px auto;
   border:1px solid var(--hair);
   border-radius:16px;
@@ -131,8 +145,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,Canta
   background:#fff;
   box-shadow:var(--shadow);
   display:grid;
-  grid-template-columns:1fr 320px;
-  height: calc(100vh - 200px);
+  grid-template-columns:1fr 500px;  /* Increased right panel from 320px to 380px */
+  height: calc(100vh - 10px);  /* Increased from 200px to 160px for taller content */
 }
 
 .panel-head{padding:14px 16px;background:var(--soft);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
@@ -177,29 +191,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,Canta
 
 .left-body{
   padding:12px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
   flex:1;
   max-height: 100%;
 }
 
-/* Scrollbar styling */
-.left-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.left-body::-webkit-scrollbar-track {
-  background: var(--soft);
-  border-radius: 3px;
-}
-
-.left-body::-webkit-scrollbar-thumb {
-  background: var(--accent-light);
-  border-radius: 3px;
-  opacity: 0.5;
-}
+/* Collections and documents sections now styled in collections.css */
 
 .left-body::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-light);
+  background: var(--primary-dark);
 }
 
 .right-body{padding:12px;overflow:auto}
@@ -234,9 +237,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,Canta
 
 .doc:hover{
   background:var(--soft);
-  margin:0 -12px;
-  padding-left:12px;
-  padding-right:12px;
   border-radius:8px;
 }
 
@@ -458,8 +458,8 @@ select, textarea {
 
 /* Document Viewer */
 dialog#viewer {
-  width: min(1100px, 95vw);
-  height: min(90vh, 900px);
+  width: min(1400px, 98vw);  /* Increased from 1100px */
+  height: min(92vh, 1000px);  /* Increased height */
   border: 0;
   border-radius: 12px;
   padding: 0;
@@ -473,12 +473,15 @@ dialog::backdrop {
 }
 
 .viewer-head {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  background:var(--primary);
-  color:#fff;
-  padding:10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--primary);
+  color: #fff;
+  padding: 10px 14px;
+  position: sticky;  /* prevents scrolling bug */
+  top: 0;            /* prevents scrolling bug */
+  z-index: 10;        /* prevents scrolling bug */
 }
 
 .viewer-title{font-weight:700;font-size:14px}
@@ -486,42 +489,112 @@ dialog::backdrop {
 .viewer-actions {
   display: flex;
   gap: 8px;
+  align-self: center;
 }
 
-.viewer-btn, .viewer-close{
-  border:1px solid var( --tabs);
-  background:transparent;
-  color:var(--tabs);
-  border-radius:8px;
-  padding:6px 12px;
-  cursor:pointer;
-  font-size:12px;
-  font-weight:600;
+.viewer-btn, .viewer-close {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
 }
 
-.viewer-btn:hover, .viewer-close:hover{
-  border:1px solid var(--viewerhover);
-  background:transparent;
-  color:var(--viewerhover);
-  border-radius:8px;
-  padding:6px 12px;
-  cursor:pointer;
-  font-size:12px;
-  font-weight:600;
-  transition: all 0.2s ease;
+.viewer-btn:hover, .viewer-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+  transform: scale(1.05);
 }
 
+.viewer-btn svg, .viewer-close svg {
+  flex-shrink: 0;
+}
 .viewer-content {
-  padding: 40px 50px;
-  max-width: 1000px;
+  padding: 30px 60px;  /* Reduced from 40px 50px */
+  max-width: 1200px;  /* Increased from 1000px */
   margin: 0 auto;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.6;
-  color: var( --ink);
+  color: var(--ink);
   background: white;
   height: calc(100% - 44px);
   overflow-y: auto;
+  font-size: 14px;  /* Added explicit font size */
+}
+
+/* Adjust markdown sizing in viewer */
+.viewer-content h1 {
+  font-size: 28px;  /* Reduced from 32px */
+  color: var(--primary);
+  border-bottom: 3px solid var(--accent-mint);
+  padding-bottom: 14px;  /* Reduced from 16px */
+  margin: 32px 0 20px 0;  /* Reduced margins */
+  font-weight: 700;
+}
+
+.viewer-content h2 {
+  font-size: 22px;  /* Reduced from 24px */
+  color: var(--ink);
+  margin: 28px 0 14px 0;  /* Reduced margins */
+  font-weight: 600;
+  border-left: 4px solid var(--accent-mint);
+  padding-left: 16px;
+}
+
+.viewer-content h3 {
+  font-size: 18px;  /* Reduced from 20px */
+  color: var(--ink);
+  margin: 20px 0 12px 0;  /* Reduced margins */
+  font-weight: 600;
+}
+
+.viewer-content p {
+  margin-bottom: 16px;  /* Reduced from 18px */
+  text-align: justify;
+  font-size: 14px;
+}
+
+.viewer-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;  /* Reduced from 24px */
+  font-size: 13px;  /* Reduced from 14px */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.viewer-content table th {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary-light);
+  padding: 12px 10px;  /* Reduced from 14px 12px */
+  text-align: left;
+  font-weight: 600;
+}
+
+.viewer-content table td {
+  border: 1px solid var(--border);
+  padding: 10px;  /* Reduced from 12px */
+  text-align: left;
+}
+
+.viewer-content ul, .viewer-content ol {
+  margin: 14px 0;  /* Reduced from 16px */
+  padding-left: 24px;
+}
+
+.viewer-content li {
+  margin-bottom: 6px;  /* Reduced from 8px */
+  font-size: 14px;
 }
 .toast-notification.minimized {
   min-width: auto;
@@ -645,6 +718,12 @@ dialog::backdrop {
   padding: 14px 16px;
   overflow: visible;
   flex: 1;
+  overflow-y: scroll;
+  scrollbar-width: none;
+}
+
+.console::-webkit-scrollbar {
+  display: none;
 }
 
 .generate-row {
@@ -790,16 +869,19 @@ dialog::backdrop {
 .console {
   padding: 12px;
   overflow-y: auto;
-  max-height: calc(100vh - 244px);
+  flex: 1;  /* This makes it fill the available space */
+}
 }
 
 .console::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  display: none;
 }
 
 .console::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
+  background: var(--primary-dark);
+  border-radius: 3px;
+  display: none;
 }
 
 /* ===== VIEWER CONTAINER & CHAT PANEL ===== */
@@ -877,48 +959,7 @@ dialog::backdrop {
   flex-direction: column;
   gap: 12px;
 }
-/* Chat message formatting */
-.chat-message-bubble p {
-  margin: 0 0 10px 0;
-}
 
-.chat-message-bubble p:last-child {
-  margin-bottom: 0;
-}
-
-.chat-message-bubble strong {
-  font-weight: 600;
-  color: var(--primary);
-}
-
-.chat-message.user .chat-message-bubble strong {
-  color: white;
-  font-weight: 700;
-}
-
-.chat-bullet {
-  margin: 4px 0;
-  padding-left: 8px;
-}
-
-.chat-numbered {
-  margin: 4px 0;
-  padding-left: 16px;
-  position: relative;
-}
-
-.chat-numbered:before {
-  content: counter(list-item) ". ";
-  position: absolute;
-  left: 0;
-  font-weight: 600;
-}
-
-.chat-message-bubble br {
-  content: "";
-  display: block;
-  margin: 4px 0;
-}
 .chat-messages::-webkit-scrollbar {
   width: 6px;
 }
@@ -974,7 +1015,7 @@ dialog::backdrop {
   max-width: 85%;
   word-wrap: break-word;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .chat-message.user .chat-message-bubble {
@@ -988,6 +1029,49 @@ dialog::backdrop {
   color: var(--ink);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
+}
+
+/* Chat message formatting */
+.chat-message-bubble p {
+  margin: 0 0 10px 0;
+}
+
+.chat-message-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-message-bubble strong {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.chat-message.user .chat-message-bubble strong {
+  color: white;
+  font-weight: 700;
+}
+
+.chat-bullet {
+  margin: 4px 0;
+  padding-left: 8px;
+}
+
+.chat-numbered {
+  margin: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.chat-numbered:before {
+  content: counter(list-item) ". ";
+  position: absolute;
+  left: 0;
+  font-weight: 600;
+}
+
+.chat-message-bubble br {
+  content: "";
+  display: block;
+  margin: 4px 0;
 }
 
 .chat-message-time {
@@ -1135,29 +1219,6 @@ dialog::backdrop {
 }
 
 /* Active jobs badge styling */
-.active-badge {
-  background: var(--accent-mint);
-  color: white;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-
-.version-badge {
-  position: fixed;
-  bottom: 12px;
-  right: 12px;
-  font-size: 9px;
-  color: var(--muted);
-  opacity: 0.5;
-  font-weight: 400;
-  z-index: 100;
-  user-select: none;
-  pointer-events: none;
-}
-
 /* Active jobs badge styling */
 .active-badge {
   background: var(--accent-mint);
@@ -1184,6 +1245,21 @@ dialog::backdrop {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Version badge - bottom right corner */
+.version-badge {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font-size: 9px;
+  color: var(--muted);
+  opacity: 0.5;
+  font-weight: 400;
+  z-index: 100;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* History download button - bottom left corner */
 .history-download-btn {
   position: fixed;
@@ -1213,4 +1289,825 @@ dialog::backdrop {
 .history-download-btn svg {
   width: 12px;
   height: 12px;
+}
+
+/* Custom Tooltip System */
+.custom-tooltip {
+  position: fixed;
+  background: var(--primary);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 280px;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.custom-tooltip.visible {
+  opacity: 1;
+}
+
+.custom-tooltip.below {
+  /* Optional: add arrow pointing up when tooltip is below */
+}
+
+/* Ensure tooltip target elements are cursor-help */
+[data-tooltip] {
+  cursor: help;
+}
+/* ===== TOOLTIPS ===== */
+
+.tooltip {
+  position: absolute;
+  background: var(--primary);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 250px;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tooltip.show {
+  opacity: 1;
+}
+
+/* Tooltip arrow */
+.tooltip::before {
+  content: '';
+  position: absolute;
+  border: 5px solid transparent;
+}
+
+/* Arrow positioning based on tooltip placement */
+.tooltip.top::before {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top-color: var(--primary);
+}
+
+.tooltip.bottom::before {
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-bottom-color: var(--primary);
+}
+
+.tooltip.left::before {
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-left-color: var(--primary);
+}
+
+.tooltip.right::before {
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-right-color: var(--primary);
+}
+
+/* Tooltip text styling */
+.tooltip strong {
+  color: var(--accent-gold-light);
+  font-weight: 600;
+}
+
+/* Add subtle animation on show */
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltip.show {
+  animation: tooltipFadeIn 0.2s ease;
+}
+
+/* ===== CREATE MODE DROPDOWN ===== */
+
+.panel-title-dropdown {
+  position: relative;
+}
+
+.create-dropdown-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  color: var(--primary);
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.create-dropdown-btn:hover {
+  color: var(--accent-mint);
+}
+
+.create-dropdown-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.create-dropdown-btn.open svg {
+  transform: rotate(180deg);
+}
+
+.create-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  min-width: 200px;
+  display: none;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.create-dropdown-menu.open {
+  display: block;
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink);
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.dropdown-item:hover {
+  background: var(--soft);
+  color: var(--accent-mint);
+}
+
+.dropdown-item:not(:last-child) {
+  border-bottom: 1px solid var(--hair);
+}
+
+/* ===== WHITE LABEL DOCUMENT SELECTOR ===== */
+
+.doc-count {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.document-selector {
+  height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+}
+
+.document-selector::-webkit-scrollbar {
+  width: 6px;
+}
+
+.document-selector::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.document-selector::-webkit-scrollbar-thumb {
+  background: var(--primary-dark);  /* faint prussian blue */
+  border-radius: 3px;
+}
+
+.document-selector::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-dark);       /* visible when active */
+}
+
+/* Firefox equivalent */
+.document-selector {
+  scrollbar-color: var(--primary-dark) transparent;
+  scrollbar-width: thin;
+}
+
+
+.selectable-doc {
+  padding: 12px;
+  border-bottom: 1px solid var(--hair);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.selectable-doc.hidden {
+  display: none !important;
+}
+
+.selectable-doc:last-child {
+  border-bottom: none;
+}
+
+.selectable-doc:hover {
+  background: var(--soft);
+}
+
+.selectable-doc.selected {
+  background: rgba(74, 157, 168, 0.15);
+  border-left: 3px solid var(--accent-mint);
+}
+
+.selectable-doc-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.selectable-doc-meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.document-selector .empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* No results message (from search) */
+.document-selector .no-results {
+  padding: 60px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* White label justification textarea */
+#whiteLabelJustification {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  resize: vertical;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.4;
+}
+
+#whiteLabelJustification::placeholder {
+  color: #9ca3af;
+  font-size: 13px;
+  font-style: italic;
+  opacity: 1;
+}
+
+#whiteLabelJustification:focus::placeholder {
+  opacity: 0.6;
+}
+
+/* Section header with search */
+.section-header-with-search {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-header-with-search h3 {
+  margin: 0;
+  flex: 1;
+}
+
+.section-header-with-search .search-container {
+  width: 200px;
+  margin: 0;
+  position: relative;
+}
+
+.section-header-with-search .search-input {
+  font-size: 12px;
+  padding: 6px 10px 6px 28px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--soft);
+  transition: all 0.2s ease;
+}
+
+.section-header-with-search .search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(23, 42, 58, 0.1);
+}
+
+.section-header-with-search .search-input::placeholder {
+  color: var(--muted);
+}
+
+.section-header-with-search .search-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  pointer-events: none;
+}
+/* ===== TOOLTIP SYSTEM ===== */
+
+.tooltip {
+  position: fixed;
+  background: var(--primary);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 280px;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.tooltip.show {
+  opacity: 1;
+  animation: tooltipFadeIn 0.2s ease;
+}
+
+/* Tooltip arrow */
+.tooltip::before {
+  content: '';
+  position: absolute;
+  border: 5px solid transparent;
+}
+
+/* Arrow positioning based on tooltip placement */
+.tooltip.top::before {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top-color: var(--primary);
+}
+
+.tooltip.bottom::before {
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-bottom-color: var(--primary);
+}
+
+.tooltip.left::before {
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-left-color: var(--primary);
+}
+
+.tooltip.right::before {
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-right-color: var(--primary);
+}
+
+/* Tooltip text styling */
+.tooltip strong {
+  color: var(--accent-mint);
+  font-weight: 600;
+}
+
+/* Add subtle animation on show */
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Ensure tooltip target elements show cursor-help */
+[data-tooltip] {
+  cursor: help;
+}
+/* Icon-based document actions */
+.doc-action {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.doc-action:hover {
+  background: var(--soft);
+  border-color: var(--border);
+  color: var(--primary);
+}
+
+.doc-action svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+/* Specific colors for different actions */
+.doc-action.view:hover {
+  color: var(--info);
+  border-color: var(--info);
+  background: rgba(23, 42, 58, 0.08);
+}
+
+.doc-action.download:hover {
+  color: var(--accent-mint);
+  border-color: var(--accent-mint);
+  background: rgba(74, 157, 168, 0.08);
+}
+
+.doc-action.collections:hover {
+  color: var(--ok);
+  border-color: var(--ok);
+  background: rgba(153, 92, 117, 0.08);
+}
+
+.doc-action.delete:hover {
+  color: #dc2626;
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+/* ===== DOCUMENT VIEWER WITH TOC ===== */
+
+/* Document Viewer with TOC */
+.viewer-content.with-toc {
+  display: flex;
+  gap: 0;
+  padding: 0;
+  max-width: none;
+  overflow: hidden;
+  height: 100%;    
+}
+
+/* TOC Sidebar */
+.viewer-toc {
+  width: 250px;
+  background: var(--soft);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  flex-shrink: 0;
+  padding: 20px 0;
+  height: 100%;      
+  box-sizing: border-box;    
+}
+}
+
+.viewer-toc::-webkit-scrollbar {
+  width: 4px;
+}
+
+.viewer-toc::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 2px;
+}
+
+.toc-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 20px 12px 20px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.toc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toc-item {
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  color: var(--ink);
+  border-left: 3px solid transparent;
+}
+
+.toc-item:hover {
+  background: rgba(23, 42, 58, 0.05);
+  color: var(--primary);
+}
+
+.toc-item.active {
+  background: rgba(23, 42, 58, 0.08);
+  border-left-color: var(--accent-mint);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Different indentation for heading levels */
+.toc-item.toc-level-1 {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.toc-item.toc-level-2 {
+  padding-left: 32px;
+  font-size: 12px;
+}
+
+.toc-item.toc-level-3 {
+  padding-left: 44px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.toc-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toc-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Document content area */
+.viewer-document {
+  flex: 1;
+  padding: 30px 60px 30px 60px; /* Extra top padding for header separation */
+  overflow-y: auto;
+  min-width: 0;
+  background: white; /* Ensure white background */
+}
+
+.viewer-document::-webkit-scrollbar {
+  width: 6px;
+}
+
+.viewer-document::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 3px;
+}
+
+/* Adjust when chat is open */
+.viewer-container.chat-open .viewer-toc {
+  width: 200px;
+}
+
+/* ===== FOLLOW UP TAB ===== */
+
+/* Prominent document title */
+.chat-document-title {
+  padding: 16px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+  border-bottom: 2px solid var(--border);
+  background: white;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Panel header and tabs */
+.chat-panel-header {
+  background: var(--soft);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Panel tabs - balanced and centered */
+.panel-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.panel-tab {
+  background: none;
+  border: none;
+  padding: 14px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.panel-tab:hover {
+  color: var(--ink);
+  background: rgba(255,255,255,0.5);
+}
+
+.panel-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--accent-mint);
+  background: white;
+}
+
+/* Tab content visibility */
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 110px); /* Account for title + tabs */
+  overflow: hidden;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+/* Follow up form - no scroll, perfect fit */
+.followup-form {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.followup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.followup-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+#followupContext {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  resize: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  height: 120px;
+}
+
+#followupContext::placeholder {
+  color: #9ca3af;
+  font-size: 13px;
+  font-style: italic;
+}
+
+#followupContext:focus {
+  outline: none;
+  border-color: var(--accent-mint);
+  box-shadow: 0 0 0 2px rgba(74, 157, 168, 0.1);
+}
+
+/* Follow up modifiers - always visible, compact */
+.followup-modifiers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modifier-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modifier-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Compact segmented controls */
+.followup-modifiers .seg {
+  display: inline-flex;
+  gap: 2px;
+  background: #f6f7f9;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px;
+  width: 100%;
+}
+
+.followup-modifiers .seg-option {
+  flex: 1;
+  font-size: 10px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.followup-modifiers .seg-option.is-active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.followup-modifiers .seg-option:hover:not(.is-active) {
+  background: rgba(23, 42, 58, 0.05);
+}
+
+/* Follow up actions */
+.followup-actions {
+  flex-shrink: 0;
+}
+
+.followup-actions .btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Brief toast notification */
+.brief-toast {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  background: var(--primary);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 1001;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.brief-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.brief-toast.hide {
+  opacity: 0;
+  transform: translateY(20px);
 }
