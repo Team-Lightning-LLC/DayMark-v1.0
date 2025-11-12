@@ -5,6 +5,8 @@ class DeepResearchApp {
     this.filteredDocuments = [];
     this.currentFilter = 'All';
     this.searchQuery = '';
+    this.panelMode = 'research'; // 'research' or 'whitelabel'
+    this.selectedDocuments = []; // For white label document selection
     
     this.init();
   }
@@ -12,7 +14,15 @@ class DeepResearchApp {
   async init() {
     this.setupEventListeners();
     await this.loadDocuments();
+    
+    // Initialize collections system
+    this.collectionsManager = new CollectionsManager(this);
+    
+    // Initialize white label search
+    this.whiteLabelSearch = new WhiteLabelDocumentSearch(this);
+    
     this.filterAndRenderDocuments();
+    this.populateDocumentSelector(); // For white label form
     console.log('Deep Research Agent initialized');
   }
 
@@ -43,11 +53,62 @@ class DeepResearchApp {
       this.startResearch();
     });
 
-    // Search functionality
-    const searchInput = document.getElementById('docSearch');
-    searchInput?.addEventListener('input', (e) => {
+    // Main library search functionality
+    const mainSearchInput = document.getElementById('docSearch');
+    mainSearchInput?.addEventListener('input', (e) => {
       this.searchQuery = e.target.value.toLowerCase();
       this.filterAndRenderDocuments();
+    });
+
+    // Create mode dropdown
+    const dropdownBtn = document.getElementById('createDropdownBtn');
+    const dropdownMenu = document.getElementById('createDropdownMenu');
+    
+    dropdownBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownBtn.classList.toggle('open');
+      dropdownMenu.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.panel-title-dropdown')) {
+        dropdownBtn?.classList.remove('open');
+        dropdownMenu?.classList.remove('open');
+      }
+    });
+
+    // Dropdown menu items
+    const dropdownItems = document.querySelectorAll('.dropdown-item');
+    dropdownItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const mode = item.dataset.mode;
+        this.switchPanelMode(mode);
+        dropdownBtn?.classList.remove('open');
+        dropdownMenu?.classList.remove('open');
+      });
+    });
+
+    // White label form interactions
+    const whiteLabelJustification = document.getElementById('whiteLabelJustification');
+    const createWhiteLabelBtn = document.getElementById('createWhiteLabelBtn');
+
+    whiteLabelJustification?.addEventListener('input', () => {
+      this.updateWhiteLabelCharCount();
+      this.updateWhiteLabelButton();
+    });
+
+    createWhiteLabelBtn?.addEventListener('click', () => {
+      this.startWhiteLabelGeneration();
+    });
+
+    // Document selector (event delegation)
+    const documentSelector = document.getElementById('documentSelector');
+    documentSelector?.addEventListener('click', (e) => {
+      const docElement = e.target.closest('.selectable-doc');
+      if (docElement) {
+        this.toggleDocumentSelection(docElement.dataset.docId);
+      }
     });
 
     // Filter chips
@@ -225,6 +286,8 @@ class DeepResearchApp {
         await this.viewDocument(docId);
       } else if (action.classList.contains('download-action')) {
         await this.downloadDocument(docId);
+      } else if (action.classList.contains('collections-action')) {
+        this.collectionsManager.showAddToCollectionModal(docId);
       } else if (action.classList.contains('delete-action')) {
         await this.deleteDocument(docId);
       }
@@ -250,30 +313,31 @@ class DeepResearchApp {
   }
 
   // Start research generation
-async startResearch() {
-  const capabilitySelect = document.getElementById('capability');
-  const frameworkSelect = document.getElementById('framework');
-  const contextInput = document.getElementById('contextInput');
-  
-  if (!capabilitySelect?.value || !frameworkSelect?.value || !contextInput?.value) return;
-  
-  const researchData = {
-    capability: capabilitySelect.value,
-    framework: frameworkSelect.value,
-    context: contextInput.value.trim(),
-    modifiers: this.getResearchParameters()
-  };
-  
-  await researchEngine.startResearch(researchData);
-  
-  //Reset form after successful submit
-  capabilitySelect.value = '';
-  frameworkSelect.innerHTML = '<option value="">Choose capability first...</option>';
-  frameworkSelect.disabled = true;
-  contextInput.value = '';
-  document.getElementById('charCount').textContent = '0';
-  document.getElementById('createBtn').disabled = true;
-}
+  async startResearch() {
+    const capabilitySelect = document.getElementById('capability');
+    const frameworkSelect = document.getElementById('framework');
+    const contextInput = document.getElementById('contextInput');
+    
+    if (!capabilitySelect?.value || !frameworkSelect?.value || !contextInput?.value) return;
+    
+    const researchData = {
+      capability: capabilitySelect.value,
+      framework: frameworkSelect.value,
+      context: contextInput.value.trim(),
+      modifiers: this.getResearchParameters()
+    };
+    
+    await researchEngine.startResearch(researchData);
+    
+    // Reset form after successful submit
+    capabilitySelect.value = '';
+    frameworkSelect.innerHTML = '<option value="">Choose capability first...</option>';
+    frameworkSelect.disabled = true;
+    contextInput.value = '';
+    document.getElementById('charCount').textContent = '0';
+    document.getElementById('createBtn').disabled = true;
+  }
+
   // Load all documents from API
   async loadDocuments() {
     try {
@@ -334,7 +398,9 @@ async startResearch() {
       topic: obj.properties?.framework || 'General',
       created_at: obj.created_at || obj.properties?.generated_at || new Date().toISOString(),
       content_source: obj.content?.source,
-      when: this.formatDate(obj.created_at || obj.properties?.generated_at)
+      when: this.formatDate(obj.created_at || obj.properties?.generated_at),
+      modifiers: obj.properties?.modifiers || null,
+      parent_document_id: obj.properties?.parent_document_id || null
     };
   }
 
@@ -362,7 +428,11 @@ async startResearch() {
           field && field.toLowerCase().includes(this.searchQuery)
         );
       
-      return matchesSearch;
+      // Use collections manager to check if document should be shown
+      const matchesCollection = this.collectionsManager ? 
+        this.collectionsManager.shouldShowDocument(doc.id) : true;
+      
+      return matchesSearch && matchesCollection;
     });
     
     this.renderDocuments();
@@ -371,9 +441,18 @@ async startResearch() {
   // Render document list
   renderDocuments() {
     const docsPane = document.getElementById('docsPane');
+    const docsHeader = document.getElementById('docsHeader');
+    
     if (!docsPane) {
       console.error('docsPane element not found');
       return;
+    }
+    
+    // Update header separately
+    if (docsHeader) {
+      const headerText = this.collectionsManager ? 
+        this.collectionsManager.getSelectedNames() : 'All Documents';
+      docsHeader.textContent = headerText;
     }
     
     if (this.filteredDocuments.length === 0) {
@@ -381,62 +460,114 @@ async startResearch() {
       return;
     }
     
-    const html = this.filteredDocuments.map(doc => `
-      <div class="doc" data-doc-id="${doc.id}">
-        <div class="doc-info">
-          <div class="tt">${doc.title}</div>
-          <div class="meta">${doc.when} - ${doc.area} - ${doc.topic}</div>
+    // Sort: uncollected documents first, collected documents last
+    const sortedDocs = [...this.filteredDocuments].sort((a, b) => {
+      const aInCollections = this.getDocumentCollections(a.id).length > 0;
+      const bInCollections = this.getDocumentCollections(b.id).length > 0;
+      
+      if (aInCollections === bInCollections) return 0;
+      return aInCollections ? 1 : -1;
+    });
+    
+    const html = sortedDocs.map(doc => {
+      const collections = this.getDocumentCollections(doc.id);
+      const collectionLabel = collections.length > 0 
+        ? collections.map(c => c.name).join(', ')
+        : 'Not Assigned to Collection';
+      
+      return `
+        <div class="doc" data-doc-id="${doc.id}">
+          <div class="doc-info">
+            <div class="tt">${doc.title}</div>
+            <div class="meta">${doc.when} • ${collectionLabel}</div>
+          </div>
+          <div class="actions">
+            <button class="doc-action view view-action" data-tooltip="View document">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+            
+            <button class="doc-action download download-action" data-tooltip="Download PDF">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </button>
+            
+            <button class="doc-action collections collections-action" data-tooltip="Add to collection">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                <line x1="12" y1="11" x2="12" y2="17"/>
+                <line x1="9" y1="14" x2="15" y2="14"/>
+              </svg>
+            </button>
+            
+            <button class="doc-action delete delete-action" data-tooltip="Delete">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </button>
+          </div>
         </div>
-        <div class="actions">
-          <button class="doc-action view-action">view</button>
-          <button class="doc-action download-action">download</button>
-          <button class="doc-action delete-action">delete</button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     
     docsPane.innerHTML = html;
   }
 
-// View document
-async viewDocument(docId) {
-  try {
-    const doc = this.documents.find(d => d.id === docId);
-    if (!doc) return;
-    
-    const downloadResponse = await fetch(`${CONFIG.VERTESIA_API_BASE}/objects/download-url`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CONFIG.VERTESIA_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        file: doc.content_source,
-        format: 'original'
-      })
-    });
-    
-    if (!downloadResponse.ok) {
-      throw new Error(`Failed to get download URL: ${downloadResponse.statusText}`);
-    }
-    
-    const downloadData = await downloadResponse.json();
-    
-    const contentResponse = await fetch(downloadData.url);
-    if (!contentResponse.ok) {
-      throw new Error(`Failed to download content: ${contentResponse.statusText}`);
-    }
-    
-    const content = await contentResponse.text();
-    
-    // Pass docId to viewer
-    markdownViewer.openViewer(content, doc.title, docId);  // <-- Added docId
-    
-  } catch (error) {
-    console.error('Failed to view document:', error);
-    alert('Failed to load document. Please try again.');
+  // Helper: Get collections a document belongs to
+  getDocumentCollections(docId) {
+    if (!this.collectionsManager) return [];
+    return this.collectionsManager.collections.filter(c => 
+      c.document_ids.includes(docId)
+    );
   }
-}
+
+  // View document
+  async viewDocument(docId) {
+    try {
+      const doc = this.documents.find(d => d.id === docId);
+      if (!doc) return;
+      
+      const downloadResponse = await fetch(`${CONFIG.VERTESIA_API_BASE}/objects/download-url`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${CONFIG.VERTESIA_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          file: doc.content_source,
+          format: 'original'
+        })
+      });
+      
+      if (!downloadResponse.ok) {
+        throw new Error(`Failed to get download URL: ${downloadResponse.statusText}`);
+      }
+      
+      const downloadData = await downloadResponse.json();
+      
+      const contentResponse = await fetch(downloadData.url);
+      if (!contentResponse.ok) {
+        throw new Error(`Failed to download content: ${contentResponse.statusText}`);
+      }
+      
+      const content = await contentResponse.text();
+      
+      // Pass docId to viewer
+      markdownViewer.openViewer(content, doc.title, docId);
+      
+    } catch (error) {
+      console.error('Failed to view document:', error);
+      alert('Failed to load document. Please try again.');
+    }
+  }
 
   // Download document as PDF
   async downloadDocument(docId) {
@@ -506,6 +637,275 @@ async viewDocument(docId) {
   async refreshDocuments() {
     await this.loadDocuments();
     this.filterAndRenderDocuments();
+    this.populateDocumentSelector(); // Refresh white label selector too
+  }
+
+  // ===== WHITE LABEL FUNCTIONALITY =====
+
+  // Switch between research and white label panels
+  switchPanelMode(mode) {
+    this.panelMode = mode;
+    
+    const researchForm = document.getElementById('researchForm');
+    const whiteLabelForm = document.getElementById('whiteLabelForm');
+    const dropdownLabel = document.getElementById('createDropdownLabel');
+    
+    if (mode === 'research') {
+      researchForm.style.display = 'block';
+      whiteLabelForm.style.display = 'none';
+      dropdownLabel.textContent = 'Create Research';
+    } else if (mode === 'whitelabel') {
+      researchForm.style.display = 'none';
+      whiteLabelForm.style.display = 'block';
+      dropdownLabel.textContent = 'Create White Label Document';
+      this.populateDocumentSelector();
+    }
+  }
+
+  // Populate document selector for white label
+  populateDocumentSelector() {
+    const selector = document.getElementById('documentSelector');
+    if (!selector) return;
+    
+    if (this.documents.length === 0) {
+      selector.innerHTML = '<div class="empty">No documents available. Create some research first.</div>';
+      return;
+    }
+    
+    const html = this.documents.map(doc => `
+      <div class="selectable-doc ${this.selectedDocuments.includes(doc.id) ? 'selected' : ''}" 
+           data-doc-id="${doc.id}">
+        <div class="selectable-doc-title">${doc.title}</div>
+        <div class="selectable-doc-meta">${doc.when} • ${doc.area} • ${doc.topic}</div>
+      </div>
+    `).join('');
+    
+    selector.innerHTML = html;
+  }
+
+  // Toggle document selection
+  toggleDocumentSelection(docId) {
+    const index = this.selectedDocuments.indexOf(docId);
+    
+    if (index > -1) {
+      // Deselect
+      this.selectedDocuments.splice(index, 1);
+    } else {
+      // Select (max 5)
+      if (this.selectedDocuments.length >= 5) {
+        alert('Maximum 5 documents can be selected.');
+        return;
+      }
+      this.selectedDocuments.push(docId);
+    }
+    
+    this.updateDocumentCount();
+    this.populateDocumentSelector();
+    this.updateWhiteLabelButton();
+  }
+
+  // Update document count display
+  updateDocumentCount() {
+    const countElement = document.getElementById('documentCount');
+    if (countElement) {
+      countElement.textContent = `${this.selectedDocuments.length}/5`;
+    }
+  }
+
+  // Update white label character count
+  updateWhiteLabelCharCount() {
+    const textarea = document.getElementById('whiteLabelJustification');
+    const charCount = document.getElementById('whiteLabelCharCount');
+    
+    if (textarea && charCount) {
+      charCount.textContent = textarea.value.length;
+    }
+  }
+
+  // Update white label button state
+  updateWhiteLabelButton() {
+    const button = document.getElementById('createWhiteLabelBtn');
+    const justification = document.getElementById('whiteLabelJustification');
+    
+    if (!button || !justification) return;
+    
+    const hasDocuments = this.selectedDocuments.length > 0;
+    const hasJustification = justification.value.trim().length > 0;
+    
+    button.disabled = !(hasDocuments && hasJustification);
+  }
+
+  // Start white label generation
+  async startWhiteLabelGeneration() {
+    const justification = document.getElementById('whiteLabelJustification');
+    
+    if (!justification) return;
+    
+    // Get selected document length
+    const lengthSeg = document.querySelector('.seg-option[data-group="documentLength"].is-active');
+    const documentLength = lengthSeg?.dataset.value || '2 Pages';
+    
+    // Map page length to token length for AI
+    const lengthTokenMap = {
+      '1 Page': '~700 tokens max (No charts or tables, just clear logic)',
+      '2 Pages': '~1400 tokens max (allows for charts/tables)', 
+      '3 Pages': '~2100 tokens max (allows for sophisticated reasoning)'
+    };
+    
+    const tokenLength = lengthTokenMap[documentLength] || '~4000 tokens (approximately 2 pages)';
+    
+    const whiteLabelData = {
+      document_ids: this.selectedDocuments,
+      justification: justification.value.trim(),
+      length: documentLength,
+      token_length: tokenLength
+    };
+    
+    console.log('Starting white label generation:', whiteLabelData);
+    
+    // Build prompt for white label compilation
+    const prompt = `
+Create a professional white label document by synthesizing the following documents:
+
+Document IDs: ${whiteLabelData.document_ids.join(', ')}
+
+Justification and Purpose:
+${whiteLabelData.justification}
+
+Target Length: ${tokenLength}
+
+Requirements:
+- Synthesize information from all provided documents
+- Create a cohesive narrative that addresses the justification
+- Target the specified token length (${documentLength})
+- Professional tone suitable for client-facing and official documentation based deliverables
+- Include key insights and data from source documents
+- Format as a polished, generically branded document
+
+The final output must be a single markdown document uploaded to the content object library with the title prefix "White Label: "
+    `.trim();
+    
+    try {
+      // Call WhiteLabel interaction with both prompt and structured data
+      const response = await vertesiaAPI.call('/execute/async', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'conversation',
+          interaction: 'WhiteLabel',
+          data: {
+            task: prompt,
+            document_ids: whiteLabelData.document_ids,
+            justification: whiteLabelData.justification,
+            length: whiteLabelData.length,
+            token_length: whiteLabelData.token_length
+          },
+          config: {
+            environment: CONFIG.ENVIRONMENT_ID,
+            model: CONFIG.MODEL
+          }
+        })
+      });
+      
+      console.log('WhiteLabel interaction started:', response);
+      
+      // Track as active job
+      const newJob = {
+        data: { 
+          capability: 'White Label',
+          framework: 'Document Synthesis',
+          modifiers: {} 
+        },
+        startTime: Date.now(),
+        timers: { refresh: null, autoDecrement: null }
+      };
+      
+      researchEngine.currentJobs.push(newJob);
+      researchEngine.saveJobsState();
+      researchEngine.updateBadge();
+      
+      // Set 5-minute auto-decrement
+      newJob.timers.autoDecrement = setTimeout(() => {
+        researchEngine.autoDecrementJob(newJob);
+      }, 5 * 60 * 1000);
+      
+      // Start polling after 5 minutes
+      setTimeout(() => {
+        researchEngine.startJobPolling(newJob);
+      }, 5 * 60 * 1000);
+      
+      // Reset form
+      this.selectedDocuments = [];
+      justification.value = '';
+      document.getElementById('whiteLabelCharCount').textContent = '0';
+      document.getElementById('documentCount').textContent = '0/5';
+      document.getElementById('createWhiteLabelBtn').disabled = true;
+      this.populateDocumentSelector();
+      
+      console.log('White label generation started');
+      
+    } catch (error) {
+      console.error('Failed to start white label generation:', error);
+      alert('Failed to start white label generation. Please try again.');
+    }
+  }
+}
+
+// White Label Document Search (separate from main library search)
+class WhiteLabelDocumentSearch {
+  constructor(app) {
+    this.app = app;
+    this.setupSearch();
+  }
+
+  setupSearch() {
+    const searchInput = document.getElementById('documentSearch');
+    if (!searchInput) return;
+
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        this.filterDocuments(e.target.value);
+      }, 150);
+    });
+  }
+
+  filterDocuments(searchTerm) {
+    const documentItems = document.querySelectorAll('.selectable-doc');
+    const searchLower = searchTerm.toLowerCase();
+    let visibleCount = 0;
+
+    documentItems.forEach(item => {
+      const title = item.querySelector('.selectable-doc-title')?.textContent?.toLowerCase() || '';
+      const meta = item.querySelector('.selectable-doc-meta')?.textContent?.toLowerCase() || '';
+      
+      const matches = title.includes(searchLower) || meta.includes(searchLower);
+      
+      if (matches || searchTerm === '') {
+        item.classList.remove('hidden');
+        visibleCount++;
+      } else {
+        item.classList.add('hidden');
+      }
+    });
+
+    this.updateNoResultsMessage(visibleCount, searchTerm);
+  }
+
+  updateNoResultsMessage(visibleCount, searchTerm) {
+    const documentSelector = document.getElementById('documentSelector');
+    const existingMessage = documentSelector?.querySelector('.no-results');
+    
+    if (visibleCount === 0 && searchTerm && documentSelector) {
+      if (!existingMessage) {
+        const noResults = document.createElement('div');
+        noResults.className = 'no-results';
+        noResults.textContent = `No documents found for "${searchTerm}"`;
+        documentSelector.appendChild(noResults);
+      }
+    } else if (existingMessage) {
+      existingMessage.remove();
+    }
   }
 }
 
