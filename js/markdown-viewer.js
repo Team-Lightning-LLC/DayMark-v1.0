@@ -1,4 +1,4 @@
-// Markdown Document Viewer and PDF Generator with Streaming Chat
+// Markdown Document Viewer and PDF Generator with Streaming Chat + TOC
 class MarkdownViewer {
   constructor() {
     this.currentContent = '';
@@ -41,6 +41,25 @@ class MarkdownViewer {
 
     // Add download chat button dynamically
     this.addDownloadChatButton();
+    
+    // Panel tabs (Chat / Follow Up)
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+      tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+    });
+    
+    // Follow Up context input
+    document.getElementById('followupContext')?.addEventListener('input', (e) => {
+      this.updateFollowupCharCount();
+      this.updateFollowupButton();
+    });
+    
+    // Generate Follow Up button
+    document.getElementById('generateFollowup')?.addEventListener('click', () => {
+      this.generateFollowUp();
+    });
+    
+    // Follow up modifier segmented controls
+    this.setupFollowupModifiers();
 
     // Click outside to close
     const dialog = document.getElementById('viewer');
@@ -123,7 +142,148 @@ class MarkdownViewer {
     URL.revokeObjectURL(url);
   }
 
-  // Open formatted markdown viewer
+  // Extract headings from markdown
+  extractHeadings(markdown) {
+    const headings = [];
+    const lines = markdown.split('\n');
+    
+    lines.forEach((line, index) => {
+      // Match markdown headings (# H1, ## H2, ### H3)
+      const match = line.match(/^(#{1,3})\s+(.+)$/);
+      if (match) {
+        const level = match[1].length;
+        const text = match[2].trim();
+        const id = this.generateHeadingId(text);
+        headings.push({ level, text, id });
+      }
+    });
+    
+    return headings;
+  }
+
+  // Generate heading ID from text
+  generateHeadingId(text) {
+    // Handle case where text might be an object or have HTML
+    let cleanText;
+    if (typeof text === 'string') {
+      cleanText = text;
+    } else if (text && typeof text.toString === 'function') {
+      cleanText = text.toString();
+    } else {
+      cleanText = String(text || '');
+    }
+    
+    // Strip HTML tags if any
+    const strippedText = cleanText.replace(/<[^>]*>/g, '');
+    
+    return strippedText
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  // Render markdown with IDs on headings
+ // Render markdown with IDs on headings
+renderMarkdownWithIds(markdown) {
+  // First, let's try a simpler approach by processing the markdown before rendering
+  const processedMarkdown = this.addHeadingIds(markdown);
+  return marked.parse(processedMarkdown);
+}
+
+// Add IDs to headings in the markdown text directly
+addHeadingIds(markdown) {
+  const lines = markdown.split('\n');
+  
+  return lines.map(line => {
+    // Match markdown headings (# H1, ## H2, ### H3)
+    const match = line.match(/^(#{1,3})\s+(.+)$/);
+    if (match) {
+      const hashes = match[1];
+      const text = match[2].trim();
+      const id = this.generateHeadingId(text);
+      
+      // Convert to HTML heading with ID
+      const level = hashes.length;
+      return `<h${level} id="${id}">${text}</h${level}>`;
+    }
+    return line;
+  }).join('\n');
+}
+  // Build TOC HTML
+  buildTOC(headings) {
+    if (headings.length === 0) {
+      return '<div class="toc-empty">No sections found</div>';
+    }
+    
+    return headings.map(h => `
+      <div class="toc-item toc-level-${h.level}" data-target="${h.id}">
+        <span class="toc-text">${h.text}</span>
+      </div>
+    `).join('');
+  }
+
+  // Setup TOC navigation
+  setupTOCNavigation() {
+    const tocItems = document.querySelectorAll('.toc-item');
+    
+    tocItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const targetId = item.dataset.target;
+        const targetElement = document.getElementById(targetId);
+        
+        if (targetElement) {
+          // Smooth scroll to target
+          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          
+          // Highlight active item
+          tocItems.forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+        }
+      });
+    });
+    
+    // Track scroll position to highlight active section
+    const viewerDocument = document.querySelector('.viewer-document');
+    if (viewerDocument) {
+      viewerDocument.addEventListener('scroll', () => {
+        this.updateActiveTOCItem();
+      });
+    }
+  }
+
+ // Update active TOC item based on scroll position
+updateActiveTOCItem() {
+  const tocItems = document.querySelectorAll('.toc-item');
+  const headings = document.querySelectorAll('.viewer-document h1, .viewer-document h2, .viewer-document h3');
+  
+  if (headings.length === 0) return;
+  
+  let activeHeading = headings[0]; // Default to first heading
+  let minDistance = Infinity;
+  
+  headings.forEach(heading => {
+    const rect = heading.getBoundingClientRect();
+    // Calculate distance from top of viewport (accounting for some offset)
+    const distance = Math.abs(rect.top - 50);
+    
+    // If this heading is closer to our target position (50px from top)
+    if (distance < minDistance && rect.top <= 200) {
+      minDistance = distance;
+      activeHeading = heading;
+    }
+  });
+  
+  // Update TOC highlighting
+  tocItems.forEach(item => {
+    if (item.dataset.target === activeHeading.id) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
+  // Open formatted markdown viewer with TOC
   openViewer(markdownContent, title, docId) {
     if (!marked || typeof marked.parse !== 'function') {
       console.error('Marked.js library not loaded');
@@ -164,13 +324,29 @@ class MarkdownViewer {
     }
 
     try {
-      // Convert markdown to HTML
-      const htmlContent = marked.parse(markdownContent);
+      // Extract headings for TOC
+      const headings = this.extractHeadings(markdownContent);
       
-      // Insert formatted content
+      // Convert markdown to HTML with IDs on headings
+      const htmlContent = this.renderMarkdownWithIds(markdownContent);
+      
+      // Insert formatted content with TOC
       if (viewerFrame) {
-        viewerFrame.innerHTML = htmlContent;
-        viewerFrame.className = 'viewer-content';
+        viewerFrame.innerHTML = `
+          <div class="viewer-toc">
+            <div class="toc-header">Contents</div>
+            <div class="toc-list">
+              ${this.buildTOC(headings)}
+            </div>
+          </div>
+          <div class="viewer-document">
+            ${htmlContent}
+          </div>
+        `;
+        viewerFrame.className = 'viewer-content with-toc';
+        
+        // Add click handlers to TOC items
+        this.setupTOCNavigation();
       }
 
       // Show dialog
@@ -284,44 +460,44 @@ class MarkdownViewer {
 
   // Open streaming connection (new stream for each message)
   openStream(workflowId, runId) {
-    console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
+  console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
+  
+  this.streamAbortController = new AbortController();
+  
+  // Declare flag BEFORE the function call
+  let answerReceived = false;
+  
+  vertesiaAPI.streamWorkflowMessages(
+    workflowId,
+    runId,
+    this.streamAbortController.signal,
     
-    this.streamAbortController = new AbortController();
-    
-    vertesiaAPI.streamWorkflowMessages(
-      workflowId,
-      runId,
-      this.streamAbortController.signal,
-      
-      // onMessage - called for each message chunk
-      (data) => {
-        console.log('Stream message received:', data);
-        
-        // Only show messages with type: "complete" - that's the final answer
-        if (data.type === 'complete' && data.message) {
-          this.removeThinkingMessage();
-          this.addMessage('assistant', data.message);
-          this.reEnableInput(); // Re-enable immediately when answer appears
-        }
-      },
-      
-      // onComplete - called when stream ends
-      () => {
-        console.log('Stream completed');
-        this.streamAbortController = null;
-        // Input already re-enabled when answer received
-      },
-      
-      // onError - called on error
-      (error) => {
-        console.error('Stream error:', error);
+    // onMessage - arrow function, not object property
+    (data) => {
+      if (data.type === 'answer' && data.message && !answerReceived) {
+        answerReceived = true;
         this.removeThinkingMessage();
-        this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
-        this.streamAbortController = null;
+        this.addMessage('assistant', data.message);
         this.reEnableInput();
       }
-    );
-  }
+    },
+    
+    // onComplete
+    () => {
+      console.log('Stream completed');
+      this.streamAbortController = null;
+    },
+    
+    // onError
+    (error) => {
+      console.error('Stream error:', error);
+      this.removeThinkingMessage();
+      this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
+      this.streamAbortController = null;
+      this.reEnableInput();
+    }
+  );
+}
 
   // Close streaming connection
   closeStream() {
@@ -392,15 +568,27 @@ class MarkdownViewer {
     div.textContent = content;
     let formatted = div.innerHTML;
     
-    // Convert bullet points (• or - at start of line) to styled list items
-    formatted = formatted.replace(/^[•\-]\s+(.+)$/gm, '<div class="chat-bullet">• $1</div>');
+    // Headers (## Header or ### Header)
+    formatted = formatted.replace(/^###\s+(.+)$/gm, '<h3 class="chat-h3">$1</h3>');
+    formatted = formatted.replace(/^##\s+(.+)$/gm, '<h2 class="chat-h2">$1</h2>');
     
-    // Bold text (**text**)
-    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Bold text (**text**) - handle multiline with [\s\S] instead of .
+    formatted = formatted.replace(/\*\*([^\*]+?)\*\*/g, '<strong>$1</strong>');
     
-    // Convert double line breaks to paragraphs
-    const paragraphs = formatted.split('\n\n').filter(p => p.trim());
-    formatted = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    // Convert bullet points (• or - or * at start of line) to styled list items
+    formatted = formatted.replace(/^[•\-\*]\s+(.+)$/gm, '<div class="chat-bullet">• $1</div>');
+    
+    // Numbered lists (1. item)
+    formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<div class="chat-numbered">$1</div>');
+    
+    // Convert double line breaks to spacing
+    formatted = formatted.replace(/\n\n+/g, '</p><p>');
+    
+    // Wrap in paragraph
+    formatted = '<p>' + formatted + '</p>';
+    
+    // Clean up empty paragraphs
+    formatted = formatted.replace(/<p>\s*<\/p>/g, '');
     
     return formatted;
   }
@@ -486,102 +674,166 @@ class MarkdownViewer {
     }
 
     try {
+      // Parse markdown to HTML
       const htmlContent = marked.parse(content);
       
+      // Create temporary container with proper styling
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = htmlContent;
       
+      // Apply comprehensive inline styles
+      tempDiv.style.cssText = `
+        position: fixed;
+        left: -10000px;
+        top: 0;
+        width: 800px;
+        background: white;
+        padding: 60px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #1f2d3d;
+      `;
+      
+      // Style all elements
       this.applyInlineStyles(tempDiv);
       
+      // Append to body
       document.body.appendChild(tempDiv);
+      
+      // Wait for rendering
+      await new Promise(resolve => setTimeout(resolve, 200));
       
       const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
       
       const pdfOptions = {
-        margin: 0.5,
+        margin: [0.75, 0.75, 0.75, 0.75],
         filename: filename,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          letterRendering: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff'
+        },
+        jsPDF: { 
+          unit: 'in', 
+          format: 'letter', 
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.page-break'
+        }
       };
       
       await html2pdf().set(pdfOptions).from(tempDiv).save();
       
+      // Clean up
       document.body.removeChild(tempDiv);
       
     } catch (error) {
       console.error('PDF generation failed:', error);
+      alert('Failed to generate PDF. Please try again.');
     }
   }
 
   // Apply inline styles for PDF generation
   applyInlineStyles(container) {
+    // Remove conflicting container styles - parent already sets width
     container.style.cssText = `
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       line-height: 1.6;
       color: #1f2d3d;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 30px 40px;
+      background: white;
     `;
     
     container.querySelectorAll('h1').forEach(h1 => {
       h1.style.cssText = `
+        display: block;
         font-size: 28px;
         color: #336F51;
         border-bottom: 3px solid #336F51;
         padding-bottom: 12px;
         margin: 30px 0 20px 0;
         font-weight: 700;
+        page-break-after: avoid;
       `;
     });
     
     container.querySelectorAll('h2').forEach(h2 => {
       h2.style.cssText = `
+        display: block;
         font-size: 22px;
         color: #1f2d3d;
         margin: 25px 0 15px 0;
         font-weight: 600;
         border-left: 4px solid #336F51;
         padding-left: 12px;
+        page-break-after: avoid;
       `;
     });
 
     container.querySelectorAll('h3').forEach(h3 => {
       h3.style.cssText = `
+        display: block;
         font-size: 18px;
         color: #1f2d3d;
         margin: 20px 0 12px 0;
         font-weight: 600;
+        page-break-after: avoid;
       `;
     });
     
     container.querySelectorAll('p').forEach(p => {
-      p.style.cssText = 'margin-bottom: 16px; text-align: justify;';
+      p.style.cssText = `
+        display: block;
+        margin: 0 0 16px 0;
+        text-align: justify;
+        line-height: 1.6;
+      `;
     });
     
     container.querySelectorAll('strong').forEach(strong => {
-      strong.style.cssText = 'color: #336F51; font-weight: 600;';
+      strong.style.cssText = `
+        display: inline;
+        color: #336F51;
+        font-weight: 600;
+      `;
     });
 
     container.querySelectorAll('ul, ol').forEach(list => {
-      list.style.cssText = 'margin: 16px 0; padding-left: 24px;';
+      list.style.cssText = `
+        display: block;
+        margin: 16px 0;
+        padding-left: 24px;
+      `;
     });
 
     container.querySelectorAll('li').forEach(li => {
-      li.style.cssText = 'margin-bottom: 8px;';
+      li.style.cssText = `
+        display: list-item;
+        margin-bottom: 8px;
+        line-height: 1.6;
+      `;
     });
     
     container.querySelectorAll('table').forEach(table => {
       table.style.cssText = `
+        display: table;
         width: 100%;
         border-collapse: collapse;
         margin: 20px 0;
         font-size: 14px;
+        page-break-inside: avoid;
       `;
       
       table.querySelectorAll('th').forEach(th => {
         th.style.cssText = `
+          display: table-cell;
           background-color: #f8f9fb;
           border: 1px solid #e0e5ea;
           padding: 12px 8px;
@@ -592,6 +844,7 @@ class MarkdownViewer {
       
       table.querySelectorAll('td').forEach(td => {
         td.style.cssText = `
+          display: table-cell;
           border: 1px solid #e0e5ea;
           padding: 10px 8px;
           text-align: left;
@@ -602,6 +855,167 @@ class MarkdownViewer {
         tr.style.backgroundColor = '#fafbfc';
       });
     });
+    
+    // Ensure code blocks are styled if present
+    container.querySelectorAll('code').forEach(code => {
+      code.style.cssText = `
+        display: inline;
+        font-family: 'Courier New', Courier, monospace;
+        background: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 13px;
+      `;
+    });
+    
+    container.querySelectorAll('pre').forEach(pre => {
+      pre.style.cssText = `
+        display: block;
+        background: #f5f5f5;
+        padding: 16px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 16px 0;
+        page-break-inside: avoid;
+      `;
+    });
+  }
+  
+  // ===== FOLLOW UP RESEARCH METHODS =====
+  
+  // Switch between Chat and Follow Up tabs
+  switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+    
+    // Update tab content
+    document.getElementById('chatTab')?.classList.toggle('hidden', tabName !== 'chat');
+    document.getElementById('followupTab')?.classList.toggle('hidden', tabName !== 'followup');
+  }
+  
+  // Setup segmented controls for Follow Up modifiers
+  setupFollowupModifiers() {
+    const modifiersContainer = document.getElementById('followupModifiers');
+    if (!modifiersContainer) return;
+    
+    modifiersContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-option');
+      if (!btn) return;
+      
+      const seg = btn.closest('.seg');
+      if (!seg) return;
+      
+      // Update active state
+      seg.querySelectorAll('.seg-option').forEach(option => {
+        option.classList.remove('is-active');
+      });
+      
+      btn.classList.add('is-active');
+    });
+  }
+  
+  // Update character count for Follow Up context
+  updateFollowupCharCount() {
+    const textarea = document.getElementById('followupContext');
+    const counter = document.getElementById('followupCharCount');
+    
+    if (textarea && counter) {
+      counter.textContent = textarea.value.length;
+    }
+  }
+  
+  // Update Follow Up button state
+  updateFollowupButton() {
+    const textarea = document.getElementById('followupContext');
+    const button = document.getElementById('generateFollowup');
+    
+    if (textarea && button) {
+      button.disabled = textarea.value.trim().length === 0;
+    }
+  }
+  
+  // Get selected modifiers from Follow Up form
+  getFollowupModifiers() {
+    const modifiers = {};
+    
+    document.querySelectorAll('#followupModifiers .seg').forEach(seg => {
+      const activeOption = seg.querySelector('.seg-option.is-active');
+      if (activeOption) {
+        const group = activeOption.dataset.group;
+        const value = activeOption.dataset.value;
+        if (group && value) {
+          modifiers[group] = value;
+        }
+      }
+    });
+    
+    return modifiers;
+  }
+  
+  // Generate Follow Up research
+  async generateFollowUp() {
+    const contextInput = document.getElementById('followupContext');
+    const button = document.getElementById('generateFollowup');
+    
+    if (!contextInput || !button) return;
+    
+    const context = contextInput.value.trim();
+    if (!context) return;
+    
+    // Disable button during generation
+    button.disabled = true;
+    
+    try {
+      const modifiers = this.getFollowupModifiers();
+      
+      // Create research data for follow-up
+      const researchData = {
+        context: context,
+        modifiers: modifiers,
+        parent_document_id: this.currentDocId
+      };
+      
+      // Start the follow-up research
+      await researchEngine.startResearch(researchData);
+      
+      // Show brief toast notification
+      this.showBriefToast('Follow-up research started');
+      
+      // Reset form
+      contextInput.value = '';
+      this.updateFollowupCharCount();
+      button.disabled = true;
+      
+    } catch (error) {
+      console.error('Failed to start follow-up research:', error);
+      this.showBriefToast('Failed to start follow-up research');
+      button.disabled = false;
+    }
+  }
+  
+  // Show brief toast notification (fades after 3 seconds)
+  showBriefToast(message) {
+    // Create toast if it doesn't exist
+    let toast = document.getElementById('briefToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'briefToast';
+      toast.className = 'brief-toast';
+      document.body.appendChild(toast);
+    }
+    
+    // Set message and show
+    toast.textContent = message;
+    toast.classList.remove('hide');
+    toast.classList.add('show');
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+    }, 3000);
   }
 }
 
