@@ -408,41 +408,46 @@ class MarkdownViewer {
     }
   }
 
-  // Open streaming connection
+  // Open streaming connection (new stream for each message)
   openStream(workflowId, runId) {
-    console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
+  console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
+  
+  this.streamAbortController = new AbortController();
+  
+  // Declare flag BEFORE the function call
+  let answerReceived = false;
+  
+  vertesiaAPI.streamWorkflowMessages(
+    workflowId,
+    runId,
+    this.streamAbortController.signal,
     
-    this.streamAbortController = new AbortController();
-    
-    vertesiaAPI.streamWorkflowMessages(
-      workflowId,
-      runId,
-      this.streamAbortController.signal,
-      
-      (data) => {
-        console.log('Stream message received:', data);
-        
-        if (data.type === 'complete' && data.message) {
-          this.removeThinkingMessage();
-          this.addMessage('assistant', data.message);
-          this.reEnableInput();
-        }
-      },
-      
-      () => {
-        console.log('Stream completed');
-        this.streamAbortController = null;
-      },
-      
-      (error) => {
-        console.error('Stream error:', error);
+    // onMessage - arrow function, not object property
+    (data) => {
+      if (data.type === 'answer' && data.message && !answerReceived) {
+        answerReceived = true;
         this.removeThinkingMessage();
-        this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
-        this.streamAbortController = null;
+        this.addMessage('assistant', data.message);
         this.reEnableInput();
       }
-    );
-  }
+    },
+    
+    // onComplete
+    () => {
+      console.log('Stream completed');
+      this.streamAbortController = null;
+    },
+    
+    // onError
+    (error) => {
+      console.error('Stream error:', error);
+      this.removeThinkingMessage();
+      this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
+      this.streamAbortController = null;
+      this.reEnableInput();
+    }
+  );
+}
 
   // Close streaming connection
   closeStream() {
