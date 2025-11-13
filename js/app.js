@@ -298,7 +298,11 @@ class DeepResearchApp {
   getResearchParameters() {
     const params = {};
     
-    document.querySelectorAll('.seg').forEach(seg => {
+    // Only query segmented controls within the research form
+    const researchForm = document.getElementById('researchForm');
+    if (!researchForm) return params;
+    
+    researchForm.querySelectorAll('.seg').forEach(seg => {
       const activeOption = seg.querySelector('.seg-option.is-active');
       if (activeOption) {
         const group = activeOption.dataset.group;
@@ -398,9 +402,7 @@ class DeepResearchApp {
       topic: obj.properties?.framework || 'General',
       created_at: obj.created_at || obj.properties?.generated_at || new Date().toISOString(),
       content_source: obj.content?.source,
-      when: this.formatDate(obj.created_at || obj.properties?.generated_at),
-      modifiers: obj.properties?.modifiers || null,
-      parent_document_id: obj.properties?.parent_document_id || null
+      when: this.formatDate(obj.created_at || obj.properties?.generated_at)
     };
   }
 
