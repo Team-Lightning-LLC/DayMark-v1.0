@@ -41,25 +41,6 @@ class MarkdownViewer {
 
     // Add download chat button dynamically
     this.addDownloadChatButton();
-    
-    // Panel tabs (Chat / Follow Up)
-    document.querySelectorAll('.panel-tab').forEach(tab => {
-      tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
-    });
-    
-    // Follow Up context input
-    document.getElementById('followupContext')?.addEventListener('input', (e) => {
-      this.updateFollowupCharCount();
-      this.updateFollowupButton();
-    });
-    
-    // Generate Follow Up button
-    document.getElementById('generateFollowup')?.addEventListener('click', () => {
-      this.generateFollowUp();
-    });
-    
-    // Follow up modifier segmented controls
-    this.setupFollowupModifiers();
 
     // Click outside to close
     const dialog = document.getElementById('viewer');
@@ -83,7 +64,6 @@ class MarkdownViewer {
     const chatInputContainer = document.querySelector('.chat-input-container');
     if (!chatInputContainer) return;
 
-    // Create button container for stacked buttons
     const buttonStack = document.createElement('div');
     buttonStack.className = 'chat-button-stack';
     buttonStack.innerHTML = `
@@ -94,15 +74,12 @@ class MarkdownViewer {
       </button>
     `;
 
-    // Find send button and replace with stack
     const sendButton = document.getElementById('chatSend');
     if (sendButton) {
-      // Move send button into stack
       chatInputContainer.removeChild(sendButton);
       buttonStack.appendChild(sendButton);
       chatInputContainer.appendChild(buttonStack);
 
-      // Add download listener
       document.getElementById('chatDownload')?.addEventListener('click', () => {
         this.downloadChatHistory();
       });
@@ -116,7 +93,6 @@ class MarkdownViewer {
       return;
     }
 
-    // Build markdown content
     let markdown = `# Chat with ${this.currentTitle}\n\n`;
     markdown += `Date: ${new Date().toLocaleDateString('en-US', { 
       month: 'long', 
@@ -130,7 +106,6 @@ class MarkdownViewer {
       markdown += `${role}: ${msg.content}\n\n`;
     });
 
-    // Create blob and download
     const blob = new Blob([markdown], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -142,13 +117,12 @@ class MarkdownViewer {
     URL.revokeObjectURL(url);
   }
 
-  // Extract headings from markdown
+  // Extract headings for TOC
   extractHeadings(markdown) {
     const headings = [];
     const lines = markdown.split('\n');
     
-    lines.forEach((line, index) => {
-      // Match markdown headings (# H1, ## H2, ### H3)
+    lines.forEach(line => {
       const match = line.match(/^(#{1,3})\s+(.+)$/);
       if (match) {
         const level = match[1].length;
@@ -161,10 +135,10 @@ class MarkdownViewer {
     return headings;
   }
 
-  // Generate heading ID from text
+  // Generate unique ID from heading text
   generateHeadingId(text) {
-    // Handle case where text might be an object or have HTML
     let cleanText;
+    
     if (typeof text === 'string') {
       cleanText = text;
     } else if (text && typeof text.toString === 'function') {
@@ -173,7 +147,6 @@ class MarkdownViewer {
       cleanText = String(text || '');
     }
     
-    // Strip HTML tags if any
     const strippedText = cleanText.replace(/<[^>]*>/g, '');
     
     return strippedText
@@ -183,32 +156,29 @@ class MarkdownViewer {
   }
 
   // Render markdown with IDs on headings
- // Render markdown with IDs on headings
-renderMarkdownWithIds(markdown) {
-  // First, let's try a simpler approach by processing the markdown before rendering
-  const processedMarkdown = this.addHeadingIds(markdown);
-  return marked.parse(processedMarkdown);
-}
+  renderMarkdownWithIds(markdown) {
+    const processedMarkdown = this.addHeadingIds(markdown);
+    return marked.parse(processedMarkdown);
+  }
 
-// Add IDs to headings in the markdown text directly
-addHeadingIds(markdown) {
-  const lines = markdown.split('\n');
-  
-  return lines.map(line => {
-    // Match markdown headings (# H1, ## H2, ### H3)
-    const match = line.match(/^(#{1,3})\s+(.+)$/);
-    if (match) {
-      const hashes = match[1];
-      const text = match[2].trim();
-      const id = this.generateHeadingId(text);
-      
-      // Convert to HTML heading with ID
-      const level = hashes.length;
-      return `<h${level} id="${id}">${text}</h${level}>`;
-    }
-    return line;
-  }).join('\n');
-}
+  // Add IDs to headings in the markdown text directly
+  addHeadingIds(markdown) {
+    const lines = markdown.split('\n');
+    
+    return lines.map(line => {
+      const match = line.match(/^(#{1,3})\s+(.+)$/);
+      if (match) {
+        const hashes = match[1];
+        const text = match[2].trim();
+        const id = this.generateHeadingId(text);
+        
+        const level = hashes.length;
+        return `<h${level} id="${id}">${text}</h${level}>`;
+      }
+      return line;
+    }).join('\n');
+  }
+
   // Build TOC HTML
   buildTOC(headings) {
     if (headings.length === 0) {
@@ -232,17 +202,17 @@ addHeadingIds(markdown) {
         const targetElement = document.getElementById(targetId);
         
         if (targetElement) {
-          // Smooth scroll to target
-          targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          targetElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
           
-          // Highlight active item
           tocItems.forEach(i => i.classList.remove('active'));
           item.classList.add('active');
         }
       });
     });
-    
-    // Track scroll position to highlight active section
+
     const viewerDocument = document.querySelector('.viewer-document');
     if (viewerDocument) {
       viewerDocument.addEventListener('scroll', () => {
@@ -251,37 +221,32 @@ addHeadingIds(markdown) {
     }
   }
 
- // Update active TOC item based on scroll position
-updateActiveTOCItem() {
-  const tocItems = document.querySelectorAll('.toc-item');
-  const headings = document.querySelectorAll('.viewer-document h1, .viewer-document h2, .viewer-document h3');
-  
-  if (headings.length === 0) return;
-  
-  let activeHeading = headings[0]; // Default to first heading
-  let minDistance = Infinity;
-  
-  headings.forEach(heading => {
-    const rect = heading.getBoundingClientRect();
-    // Calculate distance from top of viewport (accounting for some offset)
-    const distance = Math.abs(rect.top - 50);
+  // Update active TOC item based on scroll position
+  updateActiveTOCItem() {
+    const tocItems = document.querySelectorAll('.toc-item');
+    const headings = Array.from(document.querySelectorAll('.viewer-document h1, .viewer-document h2, .viewer-document h3'));
     
-    // If this heading is closer to our target position (50px from top)
-    if (distance < minDistance && rect.top <= 200) {
-      minDistance = distance;
-      activeHeading = heading;
+    let activeHeading = null;
+    const scrollTop = document.querySelector('.viewer-document')?.scrollTop || 0;
+    
+    for (let i = headings.length - 1; i >= 0; i--) {
+      if (headings[i].offsetTop <= scrollTop + 100) {
+        activeHeading = headings[i];
+        break;
+      }
     }
-  });
-  
-  // Update TOC highlighting
-  tocItems.forEach(item => {
-    if (item.dataset.target === activeHeading.id) {
-      item.classList.add('active');
-    } else {
-      item.classList.remove('active');
+    
+    if (activeHeading) {
+      const activeId = activeHeading.id;
+      
+      tocItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.target === activeId) {
+          item.classList.add('active');
+        }
+      });
     }
-  });
-}
+  }
 
   // Open formatted markdown viewer with TOC
   openViewer(markdownContent, title, docId) {
@@ -291,7 +256,6 @@ updateActiveTOCItem() {
       return;
     }
 
-    // If switching documents, close existing stream
     if (this.currentDocId && this.currentDocId !== docId) {
       console.log('Switching documents, closing existing stream');
       this.closeStream();
@@ -310,12 +274,10 @@ updateActiveTOCItem() {
     const container = document.querySelector('.viewer-container');
     const chatToggle = document.getElementById('chatToggle');
 
-    // Set title
     if (titleElement) {
       titleElement.textContent = title || 'Research Document';
     }
 
-    // Reset chat state
     if (container) {
       container.classList.remove('chat-open');
     }
@@ -324,13 +286,9 @@ updateActiveTOCItem() {
     }
 
     try {
-      // Extract headings for TOC
       const headings = this.extractHeadings(markdownContent);
-      
-      // Convert markdown to HTML with IDs on headings
       const htmlContent = this.renderMarkdownWithIds(markdownContent);
       
-      // Insert formatted content with TOC
       if (viewerFrame) {
         viewerFrame.innerHTML = `
           <div class="viewer-toc">
@@ -345,11 +303,9 @@ updateActiveTOCItem() {
         `;
         viewerFrame.className = 'viewer-content with-toc';
         
-        // Add click handlers to TOC items
         this.setupTOCNavigation();
       }
 
-      // Show dialog
       if (dialog) {
         dialog.showModal();
       }
@@ -416,26 +372,21 @@ updateActiveTOCItem() {
     const message = chatInput.value.trim();
     if (!message) return;
     
-    // Add user message to UI immediately
     this.addMessage('user', message);
     
-    // Clear input and disable
     chatInput.value = '';
     chatInput.disabled = true;
     if (chatSend) chatSend.disabled = true;
     
-    // Show thinking indicator
     this.addThinkingMessage();
     
     try {
       console.log('Sending message for document:', this.currentDocId);
       
-      // Build conversation history for context
       const conversationHistory = this.chatMessages
         .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
         .join('\n');
       
-      // Call async execution with history
       const response = await vertesiaAPI.chatWithDocument({
         document_id: this.currentDocId,
         question: message,
@@ -444,7 +395,6 @@ updateActiveTOCItem() {
       
       console.log('Async response:', response);
       
-      // Open a new stream for this message
       this.openStream(response.workflowId, response.runId);
       
     } catch (error) {
@@ -458,46 +408,41 @@ updateActiveTOCItem() {
     }
   }
 
-  // Open streaming connection (new stream for each message)
+  // Open streaming connection
   openStream(workflowId, runId) {
-  console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
-  
-  this.streamAbortController = new AbortController();
-  
-  // Declare flag BEFORE the function call
-  let answerReceived = false;
-  
-  vertesiaAPI.streamWorkflowMessages(
-    workflowId,
-    runId,
-    this.streamAbortController.signal,
+    console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
     
-    // onMessage - arrow function, not object property
-    (data) => {
-      if (data.type === 'answer' && data.message && !answerReceived) {
-        answerReceived = true;
+    this.streamAbortController = new AbortController();
+    
+    vertesiaAPI.streamWorkflowMessages(
+      workflowId,
+      runId,
+      this.streamAbortController.signal,
+      
+      (data) => {
+        console.log('Stream message received:', data);
+        
+        if (data.type === 'complete' && data.message) {
+          this.removeThinkingMessage();
+          this.addMessage('assistant', data.message);
+          this.reEnableInput();
+        }
+      },
+      
+      () => {
+        console.log('Stream completed');
+        this.streamAbortController = null;
+      },
+      
+      (error) => {
+        console.error('Stream error:', error);
         this.removeThinkingMessage();
-        this.addMessage('assistant', data.message);
+        this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
+        this.streamAbortController = null;
         this.reEnableInput();
       }
-    },
-    
-    // onComplete
-    () => {
-      console.log('Stream completed');
-      this.streamAbortController = null;
-    },
-    
-    // onError
-    (error) => {
-      console.error('Stream error:', error);
-      this.removeThinkingMessage();
-      this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
-      this.streamAbortController = null;
-      this.reEnableInput();
-    }
-  );
-}
+    );
+  }
 
   // Close streaming connection
   closeStream() {
@@ -559,58 +504,17 @@ updateActiveTOCItem() {
     this.renderChatMessages();
   }
 
-  // Format assistant message content for readability
-  formatChatMessage(content) {
-    if (!content) return '';
-    
-    // Escape HTML first for security
-    const div = document.createElement('div');
-    div.textContent = content;
-    let formatted = div.innerHTML;
-    
-    // Headers (## Header or ### Header)
-    formatted = formatted.replace(/^###\s+(.+)$/gm, '<h3 class="chat-h3">$1</h3>');
-    formatted = formatted.replace(/^##\s+(.+)$/gm, '<h2 class="chat-h2">$1</h2>');
-    
-    // Bold text (**text**) - handle multiline with [\s\S] instead of .
-    formatted = formatted.replace(/\*\*([^\*]+?)\*\*/g, '<strong>$1</strong>');
-    
-    // Convert bullet points (• or - or * at start of line) to styled list items
-    formatted = formatted.replace(/^[•\-\*]\s+(.+)$/gm, '<div class="chat-bullet">• $1</div>');
-    
-    // Numbered lists (1. item)
-    formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<div class="chat-numbered">$1</div>');
-    
-    // Convert double line breaks to spacing
-    formatted = formatted.replace(/\n\n+/g, '</p><p>');
-    
-    // Wrap in paragraph
-    formatted = '<p>' + formatted + '</p>';
-    
-    // Clean up empty paragraphs
-    formatted = formatted.replace(/<p>\s*<\/p>/g, '');
-    
-    return formatted;
-  }
-
   // Render all chat messages
   renderChatMessages() {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
-    chatMessages.innerHTML = this.chatMessages.map(msg => {
-      // Format assistant messages for readability, escape user messages
-      const content = msg.role === 'assistant' 
-        ? this.formatChatMessage(msg.content)
-        : this.escapeHtml(msg.content);
-      
-      return `
-        <div class="chat-message ${msg.role}">
-          <div class="chat-message-bubble">${content}</div>
-          <div class="chat-message-time">${msg.timestamp}</div>
-        </div>
-      `;
-    }).join('');
+    chatMessages.innerHTML = this.chatMessages.map(msg => `
+      <div class="chat-message ${msg.role}">
+        <div class="chat-message-bubble">${this.escapeHtml(msg.content)}</div>
+        <div class="chat-message-time">${msg.timestamp}</div>
+      </div>
+    `).join('');
     
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
@@ -629,7 +533,6 @@ updateActiveTOCItem() {
     const container = document.querySelector('.viewer-container');
     const chatToggle = document.getElementById('chatToggle');
     
-    // Close any active stream
     this.closeStream();
     
     if (viewerFrame) {
@@ -656,366 +559,152 @@ updateActiveTOCItem() {
     this.currentDocId = null;
   }
 
-  // Generate PDF from current content
-  async generatePDF() {
+  // Generate PDF - Use browser's native print functionality
+  generatePDF() {
     if (!this.currentContent) {
       console.error('No content to generate PDF');
       return;
     }
 
-    await this.generatePDFFromContent(this.currentContent, this.currentTitle);
+    this.generatePDFFromContent(this.currentContent, this.currentTitle);
   }
 
-  // Generate PDF from content
-  async generatePDFFromContent(content, title) {
-    if (!window.html2pdf) {
-      console.error('html2pdf library not loaded');
+  // Generate PDF from content (used by both viewer and library download)
+  generatePDFFromContent(content, title) {
+    // Create print window
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Pop-up blocked. Please allow pop-ups and try again.');
       return;
     }
 
-    try {
-      // Parse markdown to HTML
-      const htmlContent = marked.parse(content);
-      
-      // Create temporary container with proper styling
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = htmlContent;
-      
-      // Apply comprehensive inline styles
-      tempDiv.style.cssText = `
-        position: fixed;
-        left: -10000px;
-        top: 0;
-        width: 800px;
-        background: white;
-        padding: 60px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        font-size: 14px;
-        line-height: 1.6;
-        color: #1f2d3d;
-      `;
-      
-      // Style all elements
-      this.applyInlineStyles(tempDiv);
-      
-      // Append to body
-      document.body.appendChild(tempDiv);
-      
-      // Wait for rendering
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-      
-      const pdfOptions = {
-        margin: [0.75, 0.75, 0.75, 0.75],
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          letterRendering: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff'
-        },
-        jsPDF: { 
-          unit: 'in', 
-          format: 'letter', 
-          orientation: 'portrait',
-          compress: true
-        },
-        pagebreak: { 
-          mode: ['avoid-all', 'css', 'legacy'],
-          before: '.page-break'
-        }
-      };
-      
-      await html2pdf().set(pdfOptions).from(tempDiv).save();
-      
-      // Clean up
-      document.body.removeChild(tempDiv);
-      
-    } catch (error) {
-      console.error('PDF generation failed:', error);
-      alert('Failed to generate PDF. Please try again.');
-    }
-  }
-
-  // Apply inline styles for PDF generation
-  applyInlineStyles(container) {
-    // Remove conflicting container styles - parent already sets width
-    container.style.cssText = `
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      color: #1f2d3d;
-      background: white;
-    `;
+    const htmlContent = marked.parse(content);
     
-    container.querySelectorAll('h1').forEach(h1 => {
-      h1.style.cssText = `
-        display: block;
-        font-size: 28px;
-        color: #336F51;
-        border-bottom: 3px solid #336F51;
-        padding-bottom: 12px;
-        margin: 30px 0 20px 0;
-        font-weight: 700;
-        page-break-after: avoid;
-      `;
-    });
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          @media print {
+            @page {
+              margin: 0.5in;
+              size: letter portrait;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+            }
+          }
+          
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2d3d;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px;
+          }
+          
+          h1 {
+            font-size: 28px;
+            color: #336F51;
+            border-bottom: 3px solid #336F51;
+            padding-bottom: 12px;
+            margin: 30px 0 20px 0;
+            font-weight: 700;
+            page-break-after: avoid;
+          }
+          
+          h2 {
+            font-size: 22px;
+            color: #1f2d3d;
+            margin: 25px 0 15px 0;
+            font-weight: 600;
+            border-left: 4px solid #336F51;
+            padding-left: 12px;
+            page-break-after: avoid;
+          }
+          
+          h3 {
+            font-size: 18px;
+            color: #1f2d3d;
+            margin: 20px 0 12px 0;
+            font-weight: 600;
+            page-break-after: avoid;
+          }
+          
+          p {
+            margin-bottom: 16px;
+            orphans: 3;
+            widows: 3;
+          }
+          
+          strong {
+            color: #336F51;
+            font-weight: 600;
+          }
+          
+          ul, ol {
+            margin: 16px 0;
+            padding-left: 24px;
+          }
+          
+          li {
+            margin-bottom: 8px;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+            page-break-inside: avoid;
+          }
+          
+          th {
+            background-color: #f8f9fb;
+            border: 1px solid #e0e5ea;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+          }
+          
+          td {
+            border: 1px solid #e0e5ea;
+            padding: 10px 8px;
+          }
+          
+          tr:nth-child(even) {
+            background-color: #fafbfc;
+          }
+          
+          /* Prevent awkward breaks */
+          h1, h2, h3, h4, h5, h6 {
+            page-break-after: avoid;
+          }
+          
+          table, figure {
+            page-break-inside: avoid;
+          }
+        </style>
+      </head>
+      <body>
+        ${htmlContent}
+      </body>
+      </html>
+    `);
     
-    container.querySelectorAll('h2').forEach(h2 => {
-      h2.style.cssText = `
-        display: block;
-        font-size: 22px;
-        color: #1f2d3d;
-        margin: 25px 0 15px 0;
-        font-weight: 600;
-        border-left: 4px solid #336F51;
-        padding-left: 12px;
-        page-break-after: avoid;
-      `;
-    });
-
-    container.querySelectorAll('h3').forEach(h3 => {
-      h3.style.cssText = `
-        display: block;
-        font-size: 18px;
-        color: #1f2d3d;
-        margin: 20px 0 12px 0;
-        font-weight: 600;
-        page-break-after: avoid;
-      `;
-    });
+    printWindow.document.close();
     
-    container.querySelectorAll('p').forEach(p => {
-      p.style.cssText = `
-        display: block;
-        margin: 0 0 16px 0;
-        text-align: justify;
-        line-height: 1.6;
-      `;
-    });
-    
-    container.querySelectorAll('strong').forEach(strong => {
-      strong.style.cssText = `
-        display: inline;
-        color: #336F51;
-        font-weight: 600;
-      `;
-    });
-
-    container.querySelectorAll('ul, ol').forEach(list => {
-      list.style.cssText = `
-        display: block;
-        margin: 16px 0;
-        padding-left: 24px;
-      `;
-    });
-
-    container.querySelectorAll('li').forEach(li => {
-      li.style.cssText = `
-        display: list-item;
-        margin-bottom: 8px;
-        line-height: 1.6;
-      `;
-    });
-    
-    container.querySelectorAll('table').forEach(table => {
-      table.style.cssText = `
-        display: table;
-        width: 100%;
-        border-collapse: collapse;
-        margin: 20px 0;
-        font-size: 14px;
-        page-break-inside: avoid;
-      `;
-      
-      table.querySelectorAll('th').forEach(th => {
-        th.style.cssText = `
-          display: table-cell;
-          background-color: #f8f9fb;
-          border: 1px solid #e0e5ea;
-          padding: 12px 8px;
-          text-align: left;
-          font-weight: 600;
-        `;
-      });
-      
-      table.querySelectorAll('td').forEach(td => {
-        td.style.cssText = `
-          display: table-cell;
-          border: 1px solid #e0e5ea;
-          padding: 10px 8px;
-          text-align: left;
-        `;
-      });
-
-      table.querySelectorAll('tr:nth-child(even)').forEach(tr => {
-        tr.style.backgroundColor = '#fafbfc';
-      });
-    });
-    
-    // Ensure code blocks are styled if present
-    container.querySelectorAll('code').forEach(code => {
-      code.style.cssText = `
-        display: inline;
-        font-family: 'Courier New', Courier, monospace;
-        background: #f5f5f5;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 13px;
-      `;
-    });
-    
-    container.querySelectorAll('pre').forEach(pre => {
-      pre.style.cssText = `
-        display: block;
-        background: #f5f5f5;
-        padding: 16px;
-        border-radius: 6px;
-        overflow-x: auto;
-        margin: 16px 0;
-        page-break-inside: avoid;
-      `;
-    });
-  }
-  
-  // ===== FOLLOW UP RESEARCH METHODS =====
-  
-  // Switch between Chat and Follow Up tabs
-  switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.panel-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.tab === tabName);
-    });
-    
-    // Update tab content
-    document.getElementById('chatTab')?.classList.toggle('hidden', tabName !== 'chat');
-    document.getElementById('followupTab')?.classList.toggle('hidden', tabName !== 'followup');
-  }
-  
-  // Setup segmented controls for Follow Up modifiers
-  setupFollowupModifiers() {
-    const modifiersContainer = document.getElementById('followupModifiers');
-    if (!modifiersContainer) return;
-    
-    modifiersContainer.addEventListener('click', (e) => {
-      const btn = e.target.closest('.seg-option');
-      if (!btn) return;
-      
-      const seg = btn.closest('.seg');
-      if (!seg) return;
-      
-      // Update active state
-      seg.querySelectorAll('.seg-option').forEach(option => {
-        option.classList.remove('is-active');
-      });
-      
-      btn.classList.add('is-active');
-    });
-  }
-  
-  // Update character count for Follow Up context
-  updateFollowupCharCount() {
-    const textarea = document.getElementById('followupContext');
-    const counter = document.getElementById('followupCharCount');
-    
-    if (textarea && counter) {
-      counter.textContent = textarea.value.length;
-    }
-  }
-  
-  // Update Follow Up button state
-  updateFollowupButton() {
-    const textarea = document.getElementById('followupContext');
-    const button = document.getElementById('generateFollowup');
-    
-    if (textarea && button) {
-      button.disabled = textarea.value.trim().length === 0;
-    }
-  }
-  
-  // Get selected modifiers from Follow Up form
-  getFollowupModifiers() {
-    const modifiers = {};
-    
-    document.querySelectorAll('#followupModifiers .seg').forEach(seg => {
-      const activeOption = seg.querySelector('.seg-option.is-active');
-      if (activeOption) {
-        const group = activeOption.dataset.group;
-        const value = activeOption.dataset.value;
-        if (group && value) {
-          modifiers[group] = value;
-        }
-      }
-    });
-    
-    return modifiers;
-  }
-  
-  // Generate Follow Up research
-  async generateFollowUp() {
-    const contextInput = document.getElementById('followupContext');
-    const button = document.getElementById('generateFollowup');
-    
-    if (!contextInput || !button) return;
-    
-    const context = contextInput.value.trim();
-    if (!context) return;
-    
-    // Disable button during generation
-    button.disabled = true;
-    
-    try {
-      const modifiers = this.getFollowupModifiers();
-      
-      // Create research data for follow-up
-      const researchData = {
-        context: context,
-        modifiers: modifiers,
-        parent_document_id: this.currentDocId
-      };
-      
-      // Start the follow-up research
-      await researchEngine.startResearch(researchData);
-      
-      // Show brief toast notification
-      this.showBriefToast('Follow-up research started');
-      
-      // Reset form
-      contextInput.value = '';
-      this.updateFollowupCharCount();
-      button.disabled = true;
-      
-    } catch (error) {
-      console.error('Failed to start follow-up research:', error);
-      this.showBriefToast('Failed to start follow-up research');
-      button.disabled = false;
-    }
-  }
-  
-  // Show brief toast notification (fades after 3 seconds)
-  showBriefToast(message) {
-    // Create toast if it doesn't exist
-    let toast = document.getElementById('briefToast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'briefToast';
-      toast.className = 'brief-toast';
-      document.body.appendChild(toast);
-    }
-    
-    // Set message and show
-    toast.textContent = message;
-    toast.classList.remove('hide');
-    toast.classList.add('show');
-    
-    // Hide after 3 seconds
-    setTimeout(() => {
-      toast.classList.remove('show');
-      toast.classList.add('hide');
-    }, 3000);
+    // Wait for content to load, then trigger print dialog
+    printWindow.onload = function() {
+      setTimeout(() => {
+        printWindow.print();
+        // Close window after printing (user may cancel, so delay)
+        setTimeout(() => printWindow.close(), 100);
+      }, 250);
+    };
   }
 }
 
