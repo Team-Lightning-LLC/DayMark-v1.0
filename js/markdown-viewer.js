@@ -41,6 +41,25 @@ class MarkdownViewer {
 
     // Add download chat button dynamically
     this.addDownloadChatButton();
+    
+    // Panel tabs (Chat / Follow Up) - ADDED FROM FILE 1
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+      tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+    });
+    
+    // Follow Up context input - ADDED FROM FILE 1
+    document.getElementById('followupContext')?.addEventListener('input', (e) => {
+      this.updateFollowupCharCount();
+      this.updateFollowupButton();
+    });
+    
+    // Generate Follow Up button - ADDED FROM FILE 1
+    document.getElementById('generateFollowup')?.addEventListener('click', () => {
+      this.generateFollowUp();
+    });
+    
+    // Follow up modifier segmented controls - ADDED FROM FILE 1
+    this.setupFollowupModifiers();
 
     // Click outside to close
     const dialog = document.getElementById('viewer');
@@ -408,46 +427,41 @@ class MarkdownViewer {
     }
   }
 
-  // Open streaming connection (new stream for each message)
+  // Open streaming connection
   openStream(workflowId, runId) {
-  console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
-  
-  this.streamAbortController = new AbortController();
-  
-  // Declare flag BEFORE the function call
-  let answerReceived = false;
-  
-  vertesiaAPI.streamWorkflowMessages(
-    workflowId,
-    runId,
-    this.streamAbortController.signal,
+    console.log('Opening new stream for workflowId:', workflowId, 'runId:', runId);
     
-    // onMessage - arrow function, not object property
-    (data) => {
-      if (data.type === 'answer' && data.message && !answerReceived) {
-        answerReceived = true;
+    this.streamAbortController = new AbortController();
+    
+    vertesiaAPI.streamWorkflowMessages(
+      workflowId,
+      runId,
+      this.streamAbortController.signal,
+      
+      (data) => {
+        console.log('Stream message received:', data);
+        
+        if (data.type === 'complete' && data.message) {
+          this.removeThinkingMessage();
+          this.addMessage('assistant', data.message);
+          this.reEnableInput();
+        }
+      },
+      
+      () => {
+        console.log('Stream completed');
+        this.streamAbortController = null;
+      },
+      
+      (error) => {
+        console.error('Stream error:', error);
         this.removeThinkingMessage();
-        this.addMessage('assistant', data.message);
+        this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
+        this.streamAbortController = null;
         this.reEnableInput();
       }
-    },
-    
-    // onComplete
-    () => {
-      console.log('Stream completed');
-      this.streamAbortController = null;
-    },
-    
-    // onError
-    (error) => {
-      console.error('Stream error:', error);
-      this.removeThinkingMessage();
-      this.addMessage('assistant', 'Sorry, there was an error with the response stream.');
-      this.streamAbortController = null;
-      this.reEnableInput();
-    }
-  );
-}
+    );
+  }
 
   // Close streaming connection
   closeStream() {
@@ -509,17 +523,46 @@ class MarkdownViewer {
     this.renderChatMessages();
   }
 
+  // Format assistant message content for readability
+  formatChatMessage(content) {
+    if (!content) return '';
+    
+    // Escape HTML first for security
+    const div = document.createElement('div');
+    div.textContent = content;
+    let formatted = div.innerHTML;
+    
+    // Convert bullet points (• or - at start of line) to styled list items
+    formatted = formatted.replace(/^[•\-]\s+(.+)$/gm, '<div class="chat-bullet">• $1</div>');
+    
+    // Bold text (**text**)
+    formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert double line breaks to paragraphs
+    const paragraphs = formatted.split('\n\n').filter(p => p.trim());
+    formatted = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    
+    return formatted;
+  }
+
   // Render all chat messages
   renderChatMessages() {
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
     
-    chatMessages.innerHTML = this.chatMessages.map(msg => `
-      <div class="chat-message ${msg.role}">
-        <div class="chat-message-bubble">${this.escapeHtml(msg.content)}</div>
-        <div class="chat-message-time">${msg.timestamp}</div>
-      </div>
-    `).join('');
+    chatMessages.innerHTML = this.chatMessages.map(msg => {
+      // Format assistant messages for readability, escape user messages
+      const content = msg.role === 'assistant' 
+        ? this.formatChatMessage(msg.content)
+        : this.escapeHtml(msg.content);
+      
+      return `
+        <div class="chat-message ${msg.role}">
+          <div class="chat-message-bubble">${content}</div>
+          <div class="chat-message-time">${msg.timestamp}</div>
+        </div>
+      `;
+    }).join('');
     
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
@@ -710,6 +753,143 @@ class MarkdownViewer {
         setTimeout(() => printWindow.close(), 100);
       }, 250);
     };
+  }
+  
+  // ===== FOLLOW UP RESEARCH METHODS - ADDED FROM FILE 1 =====
+  
+  // Switch between Chat and Follow Up tabs
+  switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+    
+    // Update tab content
+    document.getElementById('chatTab')?.classList.toggle('hidden', tabName !== 'chat');
+    document.getElementById('followupTab')?.classList.toggle('hidden', tabName !== 'followup');
+  }
+  
+  // Setup segmented controls for Follow Up modifiers
+  setupFollowupModifiers() {
+    const modifiersContainer = document.getElementById('followupModifiers');
+    if (!modifiersContainer) return;
+    
+    modifiersContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-option');
+      if (!btn) return;
+      
+      const seg = btn.closest('.seg');
+      if (!seg) return;
+      
+      // Update active state
+      seg.querySelectorAll('.seg-option').forEach(option => {
+        option.classList.remove('is-active');
+      });
+      
+      btn.classList.add('is-active');
+    });
+  }
+  
+  // Update character count for Follow Up context
+  updateFollowupCharCount() {
+    const textarea = document.getElementById('followupContext');
+    const counter = document.getElementById('followupCharCount');
+    
+    if (textarea && counter) {
+      counter.textContent = textarea.value.length;
+    }
+  }
+  
+  // Update Follow Up button state
+  updateFollowupButton() {
+    const textarea = document.getElementById('followupContext');
+    const button = document.getElementById('generateFollowup');
+    
+    if (textarea && button) {
+      button.disabled = textarea.value.trim().length === 0;
+    }
+  }
+  
+  // Get selected modifiers from Follow Up form
+  getFollowupModifiers() {
+    const modifiers = {};
+    
+    document.querySelectorAll('#followupModifiers .seg').forEach(seg => {
+      const activeOption = seg.querySelector('.seg-option.is-active');
+      if (activeOption) {
+        const group = activeOption.dataset.group;
+        const value = activeOption.dataset.value;
+        if (group && value) {
+          modifiers[group] = value;
+        }
+      }
+    });
+    
+    return modifiers;
+  }
+  
+  // Generate Follow Up research
+  async generateFollowUp() {
+    const contextInput = document.getElementById('followupContext');
+    const button = document.getElementById('generateFollowup');
+    
+    if (!contextInput || !button) return;
+    
+    const context = contextInput.value.trim();
+    if (!context) return;
+    
+    // Disable button during generation
+    button.disabled = true;
+    
+    try {
+      const modifiers = this.getFollowupModifiers();
+      
+      // Create research data for follow-up
+      const researchData = {
+        context: context,
+        modifiers: modifiers,
+        parent_document_id: this.currentDocId
+      };
+      
+      // Start the follow-up research
+      await researchEngine.startResearch(researchData);
+      
+      // Show brief toast notification
+      this.showBriefToast('Follow-up research started');
+      
+      // Reset form
+      contextInput.value = '';
+      this.updateFollowupCharCount();
+      button.disabled = true;
+      
+    } catch (error) {
+      console.error('Failed to start follow-up research:', error);
+      this.showBriefToast('Failed to start follow-up research');
+      button.disabled = false;
+    }
+  }
+  
+  // Show brief toast notification (fades after 3 seconds)
+  showBriefToast(message) {
+    // Create toast if it doesn't exist
+    let toast = document.getElementById('briefToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'briefToast';
+      toast.className = 'brief-toast';
+      document.body.appendChild(toast);
+    }
+    
+    // Set message and show
+    toast.textContent = message;
+    toast.classList.remove('hide');
+    toast.classList.add('show');
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+    }, 3000);
   }
 }
 
